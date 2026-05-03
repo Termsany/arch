@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { useLogin, useGetMe } from "@workspace/api-client-react";
 import type { LoginBody, User } from "@workspace/api-client-react";
 import { useLocation } from "wouter";

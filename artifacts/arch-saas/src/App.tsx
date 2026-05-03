@@ -35,7 +35,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
 
   if (!user) {
-    window.location.href = import.meta.env.BASE_URL + "login";
+    window.location.href = "/login";
     return null;
   }
 
@@ -57,7 +57,7 @@ function Router() {
         {() => <ProtectedRoute component={Projects} />}
       </Route>
       <Route path="/projects/:id">
-        {(params) => <ProtectedRoute component={() => <ProjectDetails id={parseInt(params.id)} />} />}
+        {() => <ProtectedRoute component={ProjectDetails} />}
       </Route>
       <Route path="/plans">
         {() => <ProtectedRoute component={Plans} />}
