@@ -1,285 +1,74 @@
 # ArchSaaS — نظام إدارة مشاريع التصميم
 
-A full-stack Arabic RTL SaaS platform for architecture and interior design firms. Manage clients, projects, workflow stages, client feedback, estimates (BOQ), subscription plans, and offices — all in Arabic.
+A full-stack Arabic RTL SaaS platform for architecture and interior design firms.
 
 ---
 
-## Tech Stack
+## What was added in this phase
 
-| Layer | Technology |
-|---|---|
-| Frontend | React + Vite, shadcn/ui, TanStack Query, wouter |
-| Backend | Node.js + Express 5 |
-| Database | PostgreSQL + Drizzle ORM |
-| Auth | JWT (jsonwebtoken + bcryptjs) |
-| API Contract | OpenAPI → Orval codegen |
-| Package Manager | pnpm workspaces (monorepo) |
+- Real office-based multi-tenancy
+- JWT now carries user office assignment
+- API access checks for clients, projects, stages, feedback, estimates, and dashboard stats
+- Frontend sidebar hides super-admin-only pages for office users
+- Seeded 2 offices, 3 users, 4 clients, 4 projects, and workflow stages
 
 ---
 
-## Default Login Credentials
+## Database changes
 
-```
-Email:    admin@example.com
-Password: admin123
-```
-
----
-
-## Replit Setup (Fresh Clone)
-
-### 1. Install dependencies
-
-```bash
-pnpm install
-```
-
-### 2. Set up environment variables
-
-In Replit, open the **Secrets** tab and add:
-
-| Key | Value | Notes |
-|---|---|---|
-| `DATABASE_URL` | `postgresql://...` | Auto-provisioned by Replit PostgreSQL |
-| `JWT_SECRET` | any long random string | e.g. `arch_saas_jwt_secret_2024_secure` |
-| `SESSION_SECRET` | any long random string | For session management |
-
-> **Replit note:** `DATABASE_URL` and related `PG*` variables are automatically injected when you add a PostgreSQL database from the Replit Database tab. Do not set them manually.
-
-### 3. Push the database schema
-
-```bash
-pnpm --filter @workspace/db run push
-```
-
-This creates all tables: `users`, `subscription_plans`, `offices`, `clients`, `projects`, `project_stages`, `client_feedback`, `project_estimates`.
-
-### 4. Seed the database
-
-Run the seed script to populate default data (admin user, 3 subscription plans, 2 offices, 2 clients, 2 projects with all 12 workflow stages):
-
-```bash
-pnpm --filter @workspace/api-server run seed
-```
-
-> If no `seed` script exists, you can seed manually — see the **Manual Seed** section below.
-
-### 5. Start the services
-
-Replit manages workflows automatically. Use the **Run** button or start each workflow from the Replit UI:
-
-| Workflow | Command | Port |
-|---|---|---|
-| API Server | `pnpm --filter @workspace/api-server run dev` | 8080 |
-| Frontend (arch-saas) | `pnpm --filter @workspace/arch-saas run dev` | 21293 |
-
-Both services are proxied through Replit's shared proxy at port 80:
-- Frontend → `/`
-- API → `/api`
+- `users.office_id` added and made nullable
+- `clients.office_id` used to scope client data by office
+- `projects.office_id` used to scope project data by office
+- All related seed data was updated to match office ownership
 
 ---
 
-## Running Locally (Outside Replit)
-
-### Prerequisites
-
-- Node.js 20+
-- pnpm 9+
-- PostgreSQL 15+
-
-### Steps
-
-```bash
-# 1. Install dependencies
-pnpm install
-
-# 2. Set environment variables
-export DATABASE_URL="postgresql://user:password@localhost:5432/archsaas"
-export JWT_SECRET="your_jwt_secret_here"
-export SESSION_SECRET="your_session_secret_here"
-
-# 3. Push schema to database
-pnpm --filter @workspace/db run push
-
-# 4. Start API server (terminal 1)
-pnpm --filter @workspace/api-server run dev
-
-# 5. Start frontend (terminal 2)
-PORT=5173 pnpm --filter @workspace/arch-saas run dev
-```
-
----
-
-## Manual Database Seed
-
-If the seed script is unavailable, run these SQL statements directly in your PostgreSQL database:
-
-```sql
--- Admin user (password: admin123)
-INSERT INTO users (name, email, password_hash, role)
-VALUES (
-  'المدير الرئيسي',
-  'admin@example.com',
-  '$2b$10$5llh9faxb3Gjmy.B/iYQDuo0RCR.qecWw2wYWtCmKQOdC3tBJM2lq',
-  'super_admin'
-) ON CONFLICT DO NOTHING;
-
--- Subscription plans
-INSERT INTO subscription_plans (name_ar, name_en, description_ar, monthly_price, yearly_price, max_users, max_projects, max_clients, storage_limit_mb, has_pdf_reports, is_active, sort_order)
-VALUES
-  ('فردي',  'Solo',       'مناسبة للمصمم المستقل',               499,  4990,  1,   5,   10,  1024,  true, true, 1),
-  ('مكتب',  'Office',     'مناسبة للمكاتب الصغيرة والمتوسطة',   999,  9990,  5,   20,  50,  5120,  true, true, 2),
-  ('شركة',  'Enterprise', 'مناسبة للشركات الكبيرة',              1999, 19990, 20,  100, 500, 20480, true, true, 3)
-ON CONFLICT DO NOTHING;
-```
-
----
-
-## Project Structure
-
-```
-/
-├── artifacts/
-│   ├── api-server/         # Express 5 API (port 8080, path: /api)
-│   └── arch-saas/          # React + Vite frontend (path: /)
-├── lib/
-│   ├── api-client-react/   # Generated React Query hooks (from OpenAPI)
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-zod/            # Generated Zod validation schemas
-│   └── db/                 # Drizzle ORM schema + migrations
-├── scripts/                # Shared utility scripts
-├── pnpm-workspace.yaml
-└── README.md
-```
-
----
-
-## Available API Endpoints
-
-All endpoints are prefixed with `/api`.
+## New routes and behavior
 
 ### Auth
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/login` | No | Login with email + password → returns JWT |
-| GET | `/auth/me` | Yes | Get current user info |
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 
-### Dashboard
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/dashboard/stats` | Yes | Aggregate stats (clients, projects, plans, offices) |
-| GET | `/dashboard/recent-projects` | Yes | Last 5 projects |
-| GET | `/dashboard/pending-approvals` | Yes | Projects awaiting client approval |
-| GET | `/dashboard/recent-offices` | Yes | Last 5 offices |
-
-### Clients
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/clients` | Yes | List all clients |
-| POST | `/clients` | Yes | Create client |
-| GET | `/clients/:id` | Yes | Get client |
-| PUT | `/clients/:id` | Yes | Update client |
-| DELETE | `/clients/:id` | Yes | Delete client |
-
-### Projects
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/projects` | Yes | List all projects |
-| POST | `/projects` | Yes | Create project (auto-creates 12 workflow stages) |
-| GET | `/projects/:id` | Yes | Get project |
-| PUT | `/projects/:id` | Yes | Update project |
-| DELETE | `/projects/:id` | Yes | Delete project |
-| GET | `/projects/:id/stages` | Yes | Get project workflow stages |
-| GET | `/projects/:id/feedback` | Yes | Get client feedback |
-| POST | `/projects/:id/feedback` | Yes | Add client feedback |
-| GET | `/projects/:id/estimates` | Yes | Get estimate items + total |
-| POST | `/projects/:id/estimates` | Yes | Add estimate item |
-
-### Stages & Estimates
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| PUT | `/stages/:id` | Yes | Update stage status/notes |
-| PUT | `/estimates/:id` | Yes | Update estimate item |
-| DELETE | `/estimates/:id` | Yes | Delete estimate item |
-
-### Subscription Plans
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/plans` | Yes | List all plans |
-| POST | `/plans` | Yes | Create plan |
-| GET | `/plans/active` | **No** | Public — list active plans (for pricing page) |
-| GET | `/plans/:id` | Yes | Get plan |
-| PUT | `/plans/:id` | Yes | Update plan |
-| DELETE | `/plans/:id` | Yes | Delete plan |
-| PATCH | `/plans/:id/toggle-active` | Yes | Toggle plan active/inactive |
-| PATCH | `/plans/:id/recommended` | Yes | Set plan as recommended |
-
-### Offices
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/offices` | Yes | List all offices |
-| POST | `/offices` | Yes | Create office |
-| GET | `/offices/:id` | Yes | Get office |
-| PUT | `/offices/:id` | Yes | Update office |
-| DELETE | `/offices/:id` | Yes | Delete office |
+### Office isolation
+- `GET /api/clients` filters by office for non-super_admin
+- `GET /api/projects` filters by office for non-super_admin
+- `GET /api/projects/:id` returns 403 for cross-office access
+- `PUT /api/projects/:id` returns 403 for cross-office access
+- `DELETE /api/projects/:id` returns 403 for cross-office access
+- `GET /api/projects/:id/stages` checks project ownership
+- `GET /api/projects/:id/feedback` checks project ownership
+- `POST /api/projects/:id/feedback` checks project ownership
+- `GET /api/projects/:id/estimates` checks project ownership
+- `POST /api/projects/:id/estimates` checks project ownership
+- `PUT /api/stages/:stageId` checks parent project ownership
+- `PUT /api/estimates/:estimateId` checks parent project ownership
+- `DELETE /api/estimates/:estimateId` checks parent project ownership
+- `GET /api/dashboard/stats` filters by office for non-super_admin
+- `GET /api/dashboard/recent-projects` filters by office for non-super_admin
+- `GET /api/dashboard/pending-approvals` filters by office for non-super_admin
+- `GET /api/dashboard/recent-offices` stays super_admin-only
 
 ---
 
-## Frontend Pages
+## How to test this feature
 
-| Path | Auth | Description |
-|---|---|---|
-| `/login` | Public | Login page |
-| `/` | Protected | Dashboard with stats and recent activity |
-| `/clients` | Protected | Clients CRUD |
-| `/projects` | Protected | Projects list and CRUD |
-| `/projects/:id` | Protected | Project detail — stages, feedback, estimates |
-| `/plans` | Protected | Subscription plans management |
-| `/offices` | Protected | Offices management |
-| `/pricing` | Public | Public pricing page (active plans) |
+### Login accounts
+- `admin@example.com` / `admin123` — sees everything
+- `office1admin@example.com` / `admin123` — sees office 1 only
+- `office2admin@example.com` / `admin123` — sees office 2 only
 
----
-
-## Regenerate API Code (after OpenAPI changes)
-
-If you modify `lib/api-spec/openapi.yaml`, regenerate the hooks and Zod schemas:
-
-```bash
-pnpm --filter @workspace/api-spec run codegen
-```
-
-This updates:
-- `lib/api-client-react/src/generated/` — React Query hooks
-- `lib/api-zod/src/generated/` — Zod validation schemas
+### Manual checks
+1. Log in as `admin@example.com` and confirm all clients/projects appear.
+2. Log in as `office1admin@example.com` and confirm only office 1 data appears.
+3. Open `/api/projects/3` with office 1 token and confirm it returns `403`.
+4. Check `/api/dashboard/stats` for each account and confirm office-filtered counts.
+5. Confirm the sidebar hides `خطط الاشتراك` and `المكاتب` for non-super_admin users.
 
 ---
 
-## Database Schema Changes
+## Notes
 
-After modifying any schema file in `lib/db/src/schema/`:
-
-```bash
-# Push changes directly to the database (development only)
-pnpm --filter @workspace/db run push
-```
-
----
-
-## Environment Variables Reference
-
-| Variable | Required | Description |
-|---|---|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
-| `JWT_SECRET` | Yes | Secret key for signing JWT tokens |
-| `SESSION_SECRET` | Yes | Secret for session management |
-| `PORT` | No | API server port (default: 8080) |
-| `NODE_ENV` | No | `development` or `production` |
-
----
-
-## Arabic RTL Notes
-
-- The entire UI is in **Arabic** with **RTL** layout (`dir="rtl"`)
-- Font: **Cairo** (Google Fonts)
-- Numbers and dates use `dir="ltr"` spans to display correctly
-- All status labels, form fields, and error messages are in Arabic
+- The app is Arabic RTL.
+- All protected API requests use the stored JWT token.
+- `super_admin` can see all offices and all data.
+- `office_admin` and `team_member` can only see their office’s data.
