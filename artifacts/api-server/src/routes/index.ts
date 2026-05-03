@@ -11,6 +11,7 @@ import plansRouter from "./plans";
 import officesRouter from "./offices";
 import clientPortalRouter from "./client-portal";
 import filesRouter from "./files";
+import boqRouter from "./boq";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(feedbackRouter);
 router.use(estimatesRouter);
 router.use(plansRouter);
 router.use(officesRouter);
+router.use(boqRouter);
 
 export default router;

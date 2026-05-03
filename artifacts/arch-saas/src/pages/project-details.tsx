@@ -27,8 +27,25 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2, Upload, Download, Star, Eye, EyeOff, Paperclip } from "lucide-react";
+import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2, Upload, Download, Star, Eye, EyeOff, Paperclip, BookOpen } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
+interface BoqLibraryItem {
+  id: number;
+  categoryId?: number | null;
+  categoryName?: string | null;
+  itemName: string;
+  defaultUnit?: string | null;
+  defaultMaterialCost?: string | null;
+  defaultLaborCost?: string | null;
+  defaultWastePercentage?: string | null;
+  defaultProfitMargin?: string | null;
+}
+
+interface BoqCategory {
+  id: number;
+  name: string;
+}
 
 const STAGE_STATUSES = ["لم تبدأ", "جاري العمل", "في انتظار موافقة العميل", "تمت الموافقة", "يحتاج تعديل", "مكتملة"];
 const FEEDBACK_TYPES = ["موافقة", "تعديل", "ملاحظة عامة"];
@@ -148,21 +165,82 @@ export default function ProjectDetails() {
     );
   };
 
-  const [estimateForm, setEstimateForm] = useState({ phaseName: "", itemName: "", quantity: 1, unit: "", unitPrice: 0, notes: "" });
+  // ─── BOQ Library ────────────────────────────────────────────────
+  const [boqLibrary, setBoqLibrary] = useState<BoqLibraryItem[]>([]);
+  const [boqCategories, setBoqCategories] = useState<BoqCategory[]>([]);
+  useEffect(() => {
+    const token = localStorage.getItem("token") || "";
+    const h = { Authorization: `Bearer ${token}` };
+    Promise.all([
+      fetch("/api/boq/library", { headers: h }).then(r => r.ok ? r.json() : []),
+      fetch("/api/boq/categories", { headers: h }).then(r => r.ok ? r.json() : []),
+    ]).then(([lib, cats]) => { setBoqLibrary(lib); setBoqCategories(cats); }).catch(() => {});
+  }, []);
+
+  const defaultEstimateForm = {
+    phaseName: "", itemName: "", quantity: 1, unit: "",
+    materialUnitCost: 0, laborUnitCost: 0, wastePercentage: 0, profitMargin: 0,
+    categoryId: "", notes: "",
+  };
+  const [estimateForm, setEstimateForm] = useState(defaultEstimateForm);
   const [isEstimateOpen, setIsEstimateOpen] = useState(false);
   const createEstimateMutation = useCreateProjectEstimate();
   const deleteEstimateMutation = useDeleteEstimate();
 
+  const boqCalc = () => {
+    const mat = estimateForm.materialUnitCost;
+    const lab = estimateForm.laborUnitCost;
+    const waste = estimateForm.wastePercentage;
+    const profit = estimateForm.profitMargin;
+    const qty = estimateForm.quantity;
+    const unitCostBeforeProfit = mat + lab;
+    const totalCostBeforeProfit = qty * unitCostBeforeProfit * (1 + waste / 100);
+    const totalPrice = totalCostBeforeProfit * (1 + profit / 100);
+    return { unitCostBeforeProfit, totalCostBeforeProfit, totalPrice };
+  };
+
+  const applyLibraryItem = (itemId: string) => {
+    if (itemId === "none") return;
+    const item = boqLibrary.find(it => it.id === parseInt(itemId));
+    if (!item) return;
+    setEstimateForm(f => ({
+      ...f,
+      itemName: item.itemName,
+      unit: item.defaultUnit || f.unit,
+      materialUnitCost: parseFloat(item.defaultMaterialCost || "0"),
+      laborUnitCost: parseFloat(item.defaultLaborCost || "0"),
+      wastePercentage: parseFloat(item.defaultWastePercentage || "0"),
+      profitMargin: parseFloat(item.defaultProfitMargin || "0"),
+      categoryId: item.categoryId ? String(item.categoryId) : f.categoryId,
+      phaseName: item.categoryName || f.phaseName,
+    }));
+  };
+
   const handleEstimateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const { totalPrice } = boqCalc();
+    const payload = {
+      phaseName: estimateForm.phaseName,
+      itemName: estimateForm.itemName,
+      quantity: estimateForm.quantity,
+      unit: estimateForm.unit,
+      notes: estimateForm.notes,
+      categoryId: estimateForm.categoryId ? parseInt(estimateForm.categoryId) : undefined,
+      materialUnitCost: estimateForm.materialUnitCost,
+      laborUnitCost: estimateForm.laborUnitCost,
+      wastePercentage: estimateForm.wastePercentage,
+      profitMargin: estimateForm.profitMargin,
+      unitPrice: estimateForm.materialUnitCost + estimateForm.laborUnitCost,
+      totalPrice,
+    };
     createEstimateMutation.mutate(
-      { projectId, data: estimateForm },
+      { projectId, data: payload },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetProjectEstimatesQueryKey(projectId) });
           toast({ title: "تم إضافة البند للمقايسة" });
           setIsEstimateOpen(false);
-          setEstimateForm({ phaseName: "", itemName: "", quantity: 1, unit: "", unitPrice: 0, notes: "" });
+          setEstimateForm(defaultEstimateForm);
         }
       }
     );
@@ -626,51 +704,120 @@ export default function ProjectDetails() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
-                  <CardTitle>جدول الكميات والمقايسات</CardTitle>
-                  <CardDescription>حساب تكاليف التنفيذ والكميات المطلوبة</CardDescription>
+                  <CardTitle>جدول الكميات والمقايسات (BOQ)</CardTitle>
+                  <CardDescription>حساب تكاليف الخامات والمصنعية مع الهالك وهامش الربح</CardDescription>
                 </div>
-                <Dialog open={isEstimateOpen} onOpenChange={setIsEstimateOpen}>
+                <Dialog open={isEstimateOpen} onOpenChange={v => { setIsEstimateOpen(v); if (!v) setEstimateForm(defaultEstimateForm); }}>
                   <DialogTrigger asChild>
                     <Button size="sm" className="gap-2">
                       <Plus className="w-4 h-4" />
                       إضافة بند
                     </Button>
                   </DialogTrigger>
-                  <DialogContent dir="rtl" className="sm:max-w-[600px]">
+                  <DialogContent dir="rtl" className="sm:max-w-[640px]">
                     <DialogHeader>
                       <DialogTitle>إضافة بند للمقايسة</DialogTitle>
                     </DialogHeader>
-                    <form onSubmit={handleEstimateSubmit} className="space-y-4 mt-4">
-                      <div className="grid grid-cols-2 gap-4">
+                    <form onSubmit={handleEstimateSubmit} className="space-y-4 mt-2">
+                      {/* Library picker */}
+                      {boqLibrary.length > 0 && (
                         <div className="space-y-2">
-                          <Label>المرحلة / القسم (مثل: أعمال الكهرباء)</Label>
-                          <Input required value={estimateForm.phaseName} onChange={e => setEstimateForm({...estimateForm, phaseName: e.target.value})} />
+                          <Label className="flex items-center gap-2"><BookOpen className="w-3.5 h-3.5" /> اختر بنداً من المكتبة (اختياري)</Label>
+                          <Select onValueChange={applyLibraryItem}>
+                            <SelectTrigger><SelectValue placeholder="اختر للملء التلقائي..." /></SelectTrigger>
+                            <SelectContent dir="rtl">
+                              <SelectItem value="none">— بدون اختيار —</SelectItem>
+                              {boqLibrary.map(it => (
+                                <SelectItem key={it.id} value={String(it.id)}>
+                                  {it.categoryName ? `${it.categoryName} / ` : ""}{it.itemName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>التصنيف / القسم</Label>
+                          <Select value={estimateForm.categoryId} onValueChange={v => {
+                            const cat = boqCategories.find(c => c.id === parseInt(v));
+                            setEstimateForm(f => ({ ...f, categoryId: v, phaseName: cat?.name || f.phaseName }));
+                          }}>
+                            <SelectTrigger><SelectValue placeholder="اختر تصنيفاً" /></SelectTrigger>
+                            <SelectContent dir="rtl">
+                              <SelectItem value="none">بدون تصنيف</SelectItem>
+                              {boqCategories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-2">
-                          <Label>اسم البند</Label>
-                          <Input required value={estimateForm.itemName} onChange={e => setEstimateForm({...estimateForm, itemName: e.target.value})} />
+                          <Label>اسم البند *</Label>
+                          <Input required value={estimateForm.itemName} onChange={e => setEstimateForm(f => ({ ...f, itemName: e.target.value }))} placeholder="مثال: بلاط سيراميك" />
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <Label>الكمية</Label>
-                          <Input type="number" step="0.01" required value={estimateForm.quantity} onChange={e => setEstimateForm({...estimateForm, quantity: parseFloat(e.target.value)})} dir="ltr"/>
+                          <Input type="number" step="0.01" min="0.01" required dir="ltr"
+                            value={estimateForm.quantity}
+                            onChange={e => setEstimateForm(f => ({ ...f, quantity: parseFloat(e.target.value) || 1 }))} />
                         </div>
                         <div className="space-y-2">
-                          <Label>الوحدة (م٢, مقطوعية...)</Label>
-                          <Input value={estimateForm.unit} onChange={e => setEstimateForm({...estimateForm, unit: e.target.value})} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>سعر الوحدة</Label>
-                          <Input type="number" step="0.01" required value={estimateForm.unitPrice} onChange={e => setEstimateForm({...estimateForm, unitPrice: parseFloat(e.target.value)})} dir="ltr"/>
+                          <Label>الوحدة (م٢، مقطوعية...)</Label>
+                          <Input value={estimateForm.unit} onChange={e => setEstimateForm(f => ({ ...f, unit: e.target.value }))} />
                         </div>
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>تكلفة الخامة للوحدة</Label>
+                          <Input type="number" step="0.01" min="0" dir="ltr"
+                            value={estimateForm.materialUnitCost}
+                            onChange={e => setEstimateForm(f => ({ ...f, materialUnitCost: parseFloat(e.target.value) || 0 }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>تكلفة المصنعية للوحدة</Label>
+                          <Input type="number" step="0.01" min="0" dir="ltr"
+                            value={estimateForm.laborUnitCost}
+                            onChange={e => setEstimateForm(f => ({ ...f, laborUnitCost: parseFloat(e.target.value) || 0 }))} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <Label>نسبة الهالك %</Label>
+                          <Input type="number" step="0.5" min="0" dir="ltr"
+                            value={estimateForm.wastePercentage}
+                            onChange={e => setEstimateForm(f => ({ ...f, wastePercentage: parseFloat(e.target.value) || 0 }))} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>هامش الربح %</Label>
+                          <Input type="number" step="0.5" min="0" dir="ltr"
+                            value={estimateForm.profitMargin}
+                            onChange={e => setEstimateForm(f => ({ ...f, profitMargin: parseFloat(e.target.value) || 0 }))} />
+                        </div>
+                      </div>
+                      {/* Live calculation */}
+                      {(() => {
+                        const { unitCostBeforeProfit, totalCostBeforeProfit, totalPrice } = boqCalc();
+                        return (
+                          <div className="bg-muted/60 rounded-lg p-3 text-sm grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-0.5">تكلفة قبل الربح / وحدة</p>
+                              <p className="font-semibold" dir="ltr">{unitCostBeforeProfit.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-0.5">إجمالي قبل الربح</p>
+                              <p className="font-semibold" dir="ltr">{totalCostBeforeProfit.toFixed(2)}</p>
+                            </div>
+                            <div className="bg-primary/10 rounded-md py-1">
+                              <p className="text-xs text-muted-foreground mb-0.5">السعر النهائي</p>
+                              <p className="font-bold text-primary" dir="ltr">{totalPrice.toFixed(2)}</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
                       <div className="space-y-2">
                         <Label>ملاحظات</Label>
-                        <Input value={estimateForm.notes} onChange={e => setEstimateForm({...estimateForm, notes: e.target.value})} />
-                      </div>
-                      <div className="bg-muted p-3 rounded-md text-center mt-2 font-medium">
-                        الإجمالي المقدر: <span dir="ltr">${(estimateForm.quantity * estimateForm.unitPrice).toFixed(2)}</span>
+                        <Input value={estimateForm.notes} onChange={e => setEstimateForm(f => ({ ...f, notes: e.target.value }))} />
                       </div>
                       <Button type="submit" className="w-full" disabled={createEstimateMutation.isPending}>حفظ البند</Button>
                     </form>
@@ -680,33 +827,43 @@ export default function ProjectDetails() {
               <CardContent>
                 {estimatesLoading ? <Skeleton className="h-64 w-full" /> : (
                   <>
-                    <div className="rounded-md border overflow-hidden mt-4">
+                    <div className="rounded-md border overflow-x-auto mt-4">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/50">
-                            <TableHead className="text-right">القسم/المرحلة</TableHead>
+                            <TableHead className="text-right">التصنيف / القسم</TableHead>
                             <TableHead className="text-right">اسم البند</TableHead>
                             <TableHead className="text-right">الكمية</TableHead>
                             <TableHead className="text-right">الوحدة</TableHead>
-                            <TableHead className="text-right">سعر الوحدة</TableHead>
-                            <TableHead className="text-right">الإجمالي</TableHead>
-                            <TableHead className="w-[80px]"></TableHead>
+                            <TableHead className="text-right">تكلفة قبل الربح</TableHead>
+                            <TableHead className="text-right">هامش الربح</TableHead>
+                            <TableHead className="text-right font-semibold">السعر النهائي</TableHead>
+                            <TableHead className="w-[60px]"></TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {estimatesData?.items.length === 0 ? (
                             <TableRow>
-                              <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">لا توجد بنود في المقايسة</TableCell>
+                              <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">لا توجد بنود في المقايسة</TableCell>
                             </TableRow>
                           ) : (
                             estimatesData?.items.map(item => (
                               <TableRow key={item.id}>
-                                <TableCell className="font-medium">{item.phaseName}</TableCell>
-                                <TableCell>{item.itemName}</TableCell>
-                                <TableCell><span dir="ltr">{item.quantity}</span></TableCell>
-                                <TableCell>{item.unit}</TableCell>
-                                <TableCell><span dir="ltr">${item.unitPrice}</span></TableCell>
-                                <TableCell className="font-semibold text-primary"><span dir="ltr">${item.totalPrice}</span></TableCell>
+                                <TableCell className="font-medium text-sm">
+                                  {(item as unknown as { categoryName?: string }).categoryName || item.phaseName}
+                                </TableCell>
+                                <TableCell className="text-sm">{item.itemName}</TableCell>
+                                <TableCell><span dir="ltr">{item.quantity}</span> {item.unit && <span className="text-xs text-muted-foreground">{item.unit}</span>}</TableCell>
+                                <TableCell className="text-muted-foreground text-sm">{item.unit}</TableCell>
+                                <TableCell>
+                                  <span dir="ltr" className="text-sm">{parseFloat((item as unknown as { totalCostBeforeProfit?: string }).totalCostBeforeProfit || "0").toFixed(2)}</span>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="text-xs">
+                                    {(item as unknown as { profitMargin?: string }).profitMargin || "0"}%
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="font-bold text-primary"><span dir="ltr">{parseFloat(item.totalPrice).toFixed(2)}</span></TableCell>
                                 <TableCell>
                                   <AlertDialog>
                                     <AlertDialogTrigger asChild>
@@ -740,9 +897,15 @@ export default function ProjectDetails() {
                     </div>
                     {estimatesData && estimatesData.items.length > 0 && (
                       <div className="mt-6 flex justify-end">
-                        <div className="bg-primary text-primary-foreground px-6 py-3 rounded-lg shadow-md flex items-center gap-4 text-xl">
-                          <span className="font-medium">إجمالي المقايسة:</span>
-                          <span dir="ltr" className="font-bold">${estimatesData.totalCost}</span>
+                        <div className="rounded-lg border bg-muted/40 p-4 text-sm space-y-2 min-w-[260px]">
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>إجمالي قبل الربح:</span>
+                            <span dir="ltr" className="font-medium">{parseFloat(String((estimatesData as unknown as { totalCostBeforeProfit?: number }).totalCostBeforeProfit ?? 0)).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between text-base font-bold text-primary border-t pt-2 mt-1">
+                            <span>إجمالي بعد الربح:</span>
+                            <span dir="ltr">{parseFloat(String(estimatesData.totalCost)).toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
                     )}

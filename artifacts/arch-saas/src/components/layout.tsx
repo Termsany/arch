@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -9,6 +9,7 @@ const ALL_NAV_ITEMS = [
   { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false },
   { href: "/clients", label: "العملاء", icon: Users, superAdminOnly: false },
   { href: "/projects", label: "المشاريع", icon: FolderOpen, superAdminOnly: false },
+  { href: "/boq-library", label: "مكتبة المقايسة", icon: BookOpen, superAdminOnly: false },
   { href: "/plans", label: "خطط الاشتراك", icon: CreditCard, superAdminOnly: true },
   { href: "/offices", label: "المكاتب", icon: Building2, superAdminOnly: true },
   { href: "/pricing", label: "صفحة الأسعار", icon: Tag, superAdminOnly: false },
