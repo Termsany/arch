@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "BlU0JnayZOL07ldYCfErO"
+uri = "file://README.md"
+type = "text"
+title = "README.md — ArchSaaS Setup Guide"
