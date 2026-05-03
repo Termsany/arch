@@ -1,0 +1,1054 @@
+Build a full-stack MVP SaaS web application for an architecture and interior design company.
+
+The app should be in Arabic RTL and should help architecture/interior design offices manage client projects through the full design and execution workflow.
+
+Use this stack:
+- Frontend: React + Vite
+- Backend: Node.js + Express
+- Database: MySQL
+- Styling: simple clean CSS, Arabic RTL layout
+- Authentication: simple JWT login
+- Project structure:
+  - frontend/
+  - backend/
+  - database/
+
+The system has two main parts:
+
+Part 1:
+Internal project management for architecture/interior design work:
+- Clients
+- Projects
+- Project workflow stages
+- Client approvals and revisions
+- Estimates / BOQ
+
+Part 2:
+SaaS admin management:
+- Subscription plans
+- Office accounts preparation
+- Pricing page
+
+Important:
+This is an MVP.
+Keep it simple, clean, and working.
+Do not add payment integration yet.
+Do not overcomplicate permissions yet.
+Focus on working CRUD, workflow, plans management, and Arabic RTL UI.
+
+==================================================
+1. Authentication
+==================================================
+
+Create a simple admin login system.
+
+Use JWT authentication.
+
+Create a users table with:
+- id
+- name
+- email
+- password_hash
+- role
+- created_at
+- updated_at
+
+Roles:
+- super_admin
+- office_admin
+- team_member
+
+For MVP, create one default super admin:
+email: admin@example.com
+password: admin123
+
+Login page should be in Arabic.
+
+Login fields:
+- البريد الإلكتروني
+- كلمة المرور
+
+After login, redirect to dashboard.
+
+==================================================
+2. Dashboard
+==================================================
+
+Create a dashboard page in Arabic.
+
+Dashboard should show cards for:
+
+Project management stats:
+- Total clients
+- Total projects
+- Active projects
+- Projects waiting for client approval
+- Completed projects
+
+SaaS management stats:
+- Total subscription plans
+- Active plans
+- Total offices
+- Active subscriptions
+
+Also show:
+- Recent projects list
+- Recent offices list
+- Projects waiting approval
+
+Arabic labels:
+- لوحة التحكم
+- العملاء
+- المشاريع
+- المشاريع الجارية
+- في انتظار موافقة العميل
+- خطط الاشتراك
+- المكاتب
+- الاشتراكات النشطة
+
+==================================================
+3. Clients Management
+==================================================
+
+Create clients CRUD.
+
+Frontend pages:
+- Clients List
+- Add Client
+- Edit Client
+- View Client Details
+
+API endpoints:
+- GET /api/clients
+- GET /api/clients/:id
+- POST /api/clients
+- PUT /api/clients/:id
+- DELETE /api/clients/:id
+
+Client fields:
+- id
+- name
+- phone
+- email
+- address
+- notes
+- created_at
+- updated_at
+
+Arabic UI labels:
+- اسم العميل
+- رقم الهاتف
+- البريد الإلكتروني
+- العنوان
+- ملاحظات
+- إضافة عميل
+- تعديل العميل
+- حذف العميل
+
+==================================================
+4. Projects Management
+==================================================
+
+Create projects CRUD.
+
+Frontend pages:
+- Projects List
+- Add Project
+- Edit Project
+- Project Details
+
+API endpoints:
+- GET /api/projects
+- GET /api/projects/:id
+- POST /api/projects
+- PUT /api/projects/:id
+- DELETE /api/projects/:id
+
+Project fields:
+- id
+- client_id
+- project_name
+- design_type
+- area_meters
+- price_per_meter
+- total_design_price
+- project_status
+- start_date
+- notes
+- created_at
+- updated_at
+
+When creating or editing a project:
+total_design_price = area_meters * price_per_meter
+
+Design type examples:
+- تصميم داخلي
+- تصميم معماري
+- تصميم واجهات
+- تصميم وتنفيذ كامل
+- تشطيب كامل
+
+Project status examples:
+- جديد
+- جاري
+- في انتظار موافقة العميل
+- يحتاج تعديل
+- مكتمل
+
+Arabic UI labels:
+- اسم المشروع
+- العميل
+- نوع التصميم
+- المساحة بالمتر
+- سعر متر التصميم
+- إجمالي سعر التصميم
+- حالة المشروع
+- تاريخ البداية
+- ملاحظات
+- إضافة مشروع
+- تعديل المشروع
+
+==================================================
+5. Project Workflow
+==================================================
+
+Every project should automatically have these workflow stages after project creation:
+
+1. الاتفاق مع العميل وتحديد نوع التصميم
+2. الاتفاق على سعر متر التصميم
+3. المعاينة ورفع المقاسات
+4. رسم Plan 2D
+5. Mood Board
+6. التصميم 3D
+7. إرسال التصميم للعميل وأخذ موافقة أو تعديل
+8. Shop Drawing واللوحات التنفيذية
+9. المقايسة على مراحل التنفيذ
+10. التنفيذ
+11. اختيار الفرش والمطبخ والحمام ومشتملات التشطيب
+12. التسليم النهائي
+
+Create project_stages table.
+
+Stage fields:
+- id
+- project_id
+- stage_order
+- stage_name
+- status
+- notes
+- client_feedback
+- updated_at
+
+Stage statuses:
+- لم تبدأ
+- جاري العمل
+- في انتظار موافقة العميل
+- تمت الموافقة
+- يحتاج تعديل
+- مكتملة
+
+API endpoints:
+- GET /api/projects/:id/stages
+- PUT /api/stages/:stageId
+
+In the Project Details page:
+- Show the workflow as a vertical timeline
+- Show stage order
+- Show stage name
+- Show current status
+- Allow admin to update:
+  - status
+  - notes
+  - client_feedback
+
+Arabic labels:
+- مراحل المشروع
+- الحالة
+- ملاحظات داخلية
+- ملاحظات العميل
+- تحديث المرحلة
+- لم تبدأ
+- جاري العمل
+- في انتظار موافقة العميل
+- تمت الموافقة
+- يحتاج تعديل
+- مكتملة
+
+==================================================
+6. Client Feedback / Approvals / Revisions
+==================================================
+
+Add a section inside Project Details called:
+"ملاحظات وموافقات العميل"
+
+The admin can add client feedback notes linked to a project stage.
+
+Create client_feedback table.
+
+Fields:
+- id
+- project_id
+- stage_id
+- feedback_text
+- feedback_type
+- created_at
+
+Feedback type:
+- موافقة
+- تعديل
+- ملاحظة عامة
+
+API endpoints:
+- GET /api/projects/:id/feedback
+- POST /api/projects/:id/feedback
+
+Frontend:
+- Show feedback list
+- Add new feedback
+- Select related stage
+- Select feedback type
+- Add feedback text
+
+Arabic labels:
+- ملاحظات وموافقات العميل
+- نوع الملاحظة
+- المرحلة المرتبطة
+- نص الملاحظة
+- إضافة ملاحظة
+- موافقة
+- تعديل
+- ملاحظة عامة
+
+==================================================
+7. Estimates / BOQ MVP
+==================================================
+
+Create a simple estimate / BOQ table for each project.
+
+Create project_estimates table.
+
+Fields:
+- id
+- project_id
+- phase_name
+- item_name
+- quantity
+- unit
+- unit_price
+- total_price
+- notes
+- created_at
+- updated_at
+
+Automatically calculate:
+total_price = quantity * unit_price
+
+Execution phases examples:
+- أعمال هدم
+- أعمال مباني
+- كهرباء
+- سباكة
+- محارة
+- أرضيات
+- دهانات
+- نجارة
+- مطبخ
+- حمام
+- فرش وتشطيب نهائي
+
+API endpoints:
+- GET /api/projects/:id/estimates
+- POST /api/projects/:id/estimates
+- PUT /api/estimates/:estimateId
+- DELETE /api/estimates/:estimateId
+
+Frontend:
+Inside Project Details page, create a section called:
+"المقايسة"
+
+Show:
+- Estimate table
+- Add item form
+- Edit item
+- Delete item
+- Total estimate cost
+
+Arabic labels:
+- المقايسة
+- المرحلة
+- البند
+- الكمية
+- الوحدة
+- سعر الوحدة
+- الإجمالي
+- ملاحظات
+- إضافة بند
+- إجمالي المقايسة
+
+==================================================
+8. Subscription Plans Management
+==================================================
+
+Add an admin page called:
+"خطط الاشتراك"
+
+The super admin can:
+- Add a new plan
+- Edit an existing plan
+- Delete a plan
+- Activate or deactivate a plan
+- Mark one plan as recommended
+- View all plans in clean cards or table layout
+
+Create subscription_plans table.
+
+Plan fields:
+- id
+- name_ar
+- name_en
+- description_ar
+- monthly_price
+- yearly_price
+- max_users
+- max_projects
+- max_clients
+- storage_limit_mb
+- has_client_portal
+- has_whatsapp_notifications
+- has_pdf_reports
+- has_team_roles
+- has_advanced_estimates
+- is_recommended
+- is_active
+- sort_order
+- created_at
+- updated_at
+
+Database table:
+
+CREATE TABLE subscription_plans (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name_ar VARCHAR(100) NOT NULL,
+  name_en VARCHAR(100),
+  description_ar TEXT,
+  monthly_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  yearly_price DECIMAL(10,2) NOT NULL DEFAULT 0,
+  max_users INT DEFAULT 1,
+  max_projects INT DEFAULT 0,
+  max_clients INT DEFAULT 0,
+  storage_limit_mb INT DEFAULT 0,
+  has_client_portal BOOLEAN DEFAULT FALSE,
+  has_whatsapp_notifications BOOLEAN DEFAULT FALSE,
+  has_pdf_reports BOOLEAN DEFAULT FALSE,
+  has_team_roles BOOLEAN DEFAULT FALSE,
+  has_advanced_estimates BOOLEAN DEFAULT FALSE,
+  is_recommended BOOLEAN DEFAULT FALSE,
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+API endpoints:
+- GET /api/plans
+- GET /api/plans/active
+- GET /api/plans/:id
+- POST /api/plans
+- PUT /api/plans/:id
+- DELETE /api/plans/:id
+- PATCH /api/plans/:id/toggle-active
+- PATCH /api/plans/:id/recommended
+
+Rules:
+- Only one plan can be recommended at a time.
+- Do not show inactive plans on public pricing page.
+- Admin plans page should show both active and inactive plans.
+
+Frontend page:
+PlansPage
+
+Route:
+- /plans
+
+Sidebar menu item:
+- خطط الاشتراك
+
+Plan card should show:
+- Plan name
+- Description
+- Monthly price
+- Yearly price
+- Max users
+- Max projects
+- Max clients
+- Storage limit
+- Feature badges
+- Active / Inactive status
+- Recommended badge if selected
+
+Arabic labels:
+- خطط الاشتراك
+- إضافة خطة
+- تعديل الخطة
+- حذف الخطة
+- تفعيل
+- إيقاف
+- الخطة الموصى بها
+- نشطة
+- غير نشطة
+- السعر الشهري
+- السعر السنوي
+- عدد المستخدمين
+- عدد المشاريع
+- عدد العملاء
+- مساحة التخزين
+- بوابة العميل
+- إشعارات واتساب
+- تقارير PDF
+- صلاحيات الفريق
+- مقايسات متقدمة
+
+==================================================
+9. Default Subscription Plans
+==================================================
+
+Add seed data for these plans:
+
+Plan 1:
+name_ar: فردي
+name_en: Solo
+description_ar: مناسبة للمصمم المستقل أو المكتب الصغير في البداية
+monthly_price: 499
+yearly_price: 4990
+max_users: 1
+max_projects: 10
+max_clients: 25
+storage_limit_mb: 1000
+has_client_portal: false
+has_whatsapp_notifications: false
+has_pdf_reports: false
+has_team_roles: false
+has_advanced_estimates: false
+is_recommended: false
+is_active: true
+sort_order: 1
+
+Features shown in frontend:
+- إدارة العملاء
+- إدارة المشاريع
+- Workflow أساسي
+- مقايسة بسيطة
+
+Plan 2:
+name_ar: مكتب
+name_en: Studio
+description_ar: مناسبة لمكتب تصميم داخلي أو معماري لديه فريق عمل صغير
+monthly_price: 1499
+yearly_price: 14990
+max_users: 5
+max_projects: 50
+max_clients: 150
+storage_limit_mb: 10000
+has_client_portal: true
+has_whatsapp_notifications: false
+has_pdf_reports: true
+has_team_roles: true
+has_advanced_estimates: false
+is_recommended: true
+is_active: true
+sort_order: 2
+
+Features shown in frontend:
+- كل مميزات خطة فردي
+- فريق عمل
+- صلاحيات
+- تقارير PDF
+- Client Portal
+
+Plan 3:
+name_ar: شركة
+name_en: Company
+description_ar: مناسبة للشركات والمكاتب الكبيرة التي تدير عدد كبير من المشاريع والعملاء
+monthly_price: 3999
+yearly_price: 39990
+max_users: 20
+max_projects: 300
+max_clients: 1000
+storage_limit_mb: 50000
+has_client_portal: true
+has_whatsapp_notifications: true
+has_pdf_reports: true
+has_team_roles: true
+has_advanced_estimates: true
+is_recommended: false
+is_active: true
+sort_order: 3
+
+Features shown in frontend:
+- كل مميزات خطة مكتب
+- WhatsApp Notifications
+- Advanced Estimates
+- Roles & Permissions
+- Multi-branch support later
+
+==================================================
+10. Public Pricing Page
+==================================================
+
+Create a public pricing page.
+
+Route:
+/pricing
+
+This page should show only active plans.
+
+Page title:
+"اختار الخطة المناسبة لمكتبك"
+
+Each pricing card should show:
+- Plan name
+- Description
+- Monthly price
+- Yearly price
+- Max users
+- Max projects
+- Max clients
+- Storage limit
+- Features
+- Recommended badge
+- Button: ابدأ الآن
+
+Important:
+- Inactive plans should not appear here.
+- The pricing page should not require login.
+- Make the design clean and suitable for SaaS landing page.
+
+==================================================
+11. Offices / Subscription Preparation
+==================================================
+
+Prepare the database for future office subscriptions.
+
+Create offices table.
+
+Fields:
+- id
+- office_name
+- owner_name
+- phone
+- email
+- address
+- plan_id
+- subscription_status
+- subscription_start
+- subscription_end
+- created_at
+- updated_at
+
+subscription_status values:
+- trial
+- active
+- expired
+- cancelled
+
+Add relation:
+offices.plan_id references subscription_plans.id
+
+Database table:
+
+CREATE TABLE offices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  office_name VARCHAR(150) NOT NULL,
+  owner_name VARCHAR(150),
+  phone VARCHAR(50),
+  email VARCHAR(150),
+  address TEXT,
+  plan_id INT,
+  subscription_status ENUM('trial', 'active', 'expired', 'cancelled') DEFAULT 'trial',
+  subscription_start DATE,
+  subscription_end DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (plan_id) REFERENCES subscription_plans(id) ON DELETE SET NULL
+);
+
+For MVP:
+- clients and projects can stay global.
+- But prepare the code and database structure so later we can link users, clients, projects, and team members to office_id.
+
+Add optional office_id columns if simple:
+- users.office_id nullable
+- clients.office_id nullable
+- projects.office_id nullable
+
+Do not enforce complicated multi-tenancy yet.
+Just prepare the database.
+
+==================================================
+12. Offices Management Page
+==================================================
+
+Create basic Offices CRUD page for super admin.
+
+Frontend page:
+- OfficesPage
+
+Route:
+- /offices
+
+Sidebar menu item:
+- المكاتب
+
+API endpoints:
+- GET /api/offices
+- GET /api/offices/:id
+- POST /api/offices
+- PUT /api/offices/:id
+- DELETE /api/offices/:id
+
+Office fields:
+- office_name
+- owner_name
+- phone
+- email
+- address
+- plan_id
+- subscription_status
+- subscription_start
+- subscription_end
+
+Arabic labels:
+- المكاتب
+- اسم المكتب
+- اسم المالك
+- رقم الهاتف
+- البريد الإلكتروني
+- العنوان
+- خطة الاشتراك
+- حالة الاشتراك
+- بداية الاشتراك
+- نهاية الاشتراك
+- إضافة مكتب
+- تعديل المكتب
+- حذف المكتب
+
+==================================================
+13. Frontend Layout
+==================================================
+
+Use Arabic RTL layout.
+
+Create a clean admin layout with:
+- Sidebar
+- Top bar
+- Main content area
+
+Sidebar items:
+- لوحة التحكم
+- العملاء
+- المشاريع
+- خطط الاشتراك
+- المكاتب
+- صفحة الأسعار
+- تسجيل الخروج
+
+Use simple responsive CSS.
+
+Buttons:
+- إضافة
+- تعديل
+- حذف
+- حفظ
+- رجوع
+- عرض
+- إلغاء
+- تفعيل
+- إيقاف
+
+Use cards and tables.
+
+Make it usable on desktop and tablet.
+
+==================================================
+14. Backend Structure
+==================================================
+
+Inside backend folder, create clean structure:
+
+backend/
+- server.js
+- package.json
+- .env.example
+- config/
+  - db.js
+- middleware/
+  - authMiddleware.js
+- routes/
+  - authRoutes.js
+  - dashboardRoutes.js
+  - clientRoutes.js
+  - projectRoutes.js
+  - stageRoutes.js
+  - feedbackRoutes.js
+  - estimateRoutes.js
+  - planRoutes.js
+  - officeRoutes.js
+- controllers/
+  - authController.js
+  - dashboardController.js
+  - clientController.js
+  - projectController.js
+  - stageController.js
+  - feedbackController.js
+  - estimateController.js
+  - planController.js
+  - officeController.js
+
+Use mysql2 package.
+Use bcryptjs for password hashing.
+Use jsonwebtoken for JWT.
+Use cors.
+Use dotenv.
+
+Backend .env.example:
+
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=
+DB_NAME=architecture_saas
+PORT=5000
+JWT_SECRET=change_this_secret
+
+==================================================
+15. Frontend Structure
+==================================================
+
+Inside frontend folder, create clean structure:
+
+frontend/
+- package.json
+- index.html
+- src/
+  - main.jsx
+  - App.jsx
+  - api/
+    - api.js
+  - components/
+    - Layout.jsx
+    - Sidebar.jsx
+    - StatCard.jsx
+    - PlanCard.jsx
+  - pages/
+    - Login.jsx
+    - Dashboard.jsx
+    - Clients.jsx
+    - ClientForm.jsx
+    - Projects.jsx
+    - ProjectForm.jsx
+    - ProjectDetails.jsx
+    - Plans.jsx
+    - PlanForm.jsx
+    - Offices.jsx
+    - OfficeForm.jsx
+    - Pricing.jsx
+  - styles/
+    - main.css
+
+Use React Router.
+
+Use localStorage to store token.
+
+Create protected routes for admin pages.
+Pricing page should be public.
+
+==================================================
+16. Database
+==================================================
+
+Create database folder:
+
+database/
+- schema.sql
+- seed.sql
+
+schema.sql should create database:
+architecture_saas
+
+Tables:
+- users
+- subscription_plans
+- offices
+- clients
+- projects
+- project_stages
+- client_feedback
+- project_estimates
+
+Use proper foreign keys.
+
+Add nullable office_id in users, clients, and projects if easy.
+
+seed.sql should include:
+- Default admin user
+- 3 subscription plans
+- 2 sample offices
+- 2 sample clients
+- 2 sample projects
+- Workflow stages for sample projects
+- Sample client feedback
+- Sample estimates
+
+Default login:
+email: admin@example.com
+password: admin123
+
+Important:
+Hash the password in seed.sql or make login support the seeded password correctly.
+Prefer bcrypt hash for admin123.
+
+==================================================
+17. Required API List
+==================================================
+
+Auth:
+- POST /api/auth/login
+
+Dashboard:
+- GET /api/dashboard/stats
+
+Clients:
+- GET /api/clients
+- GET /api/clients/:id
+- POST /api/clients
+- PUT /api/clients/:id
+- DELETE /api/clients/:id
+
+Projects:
+- GET /api/projects
+- GET /api/projects/:id
+- POST /api/projects
+- PUT /api/projects/:id
+- DELETE /api/projects/:id
+
+Project stages:
+- GET /api/projects/:id/stages
+- PUT /api/stages/:stageId
+
+Feedback:
+- GET /api/projects/:id/feedback
+- POST /api/projects/:id/feedback
+
+Estimates:
+- GET /api/projects/:id/estimates
+- POST /api/projects/:id/estimates
+- PUT /api/estimates/:estimateId
+- DELETE /api/estimates/:estimateId
+
+Plans:
+- GET /api/plans
+- GET /api/plans/active
+- GET /api/plans/:id
+- POST /api/plans
+- PUT /api/plans/:id
+- DELETE /api/plans/:id
+- PATCH /api/plans/:id/toggle-active
+- PATCH /api/plans/:id/recommended
+
+Offices:
+- GET /api/offices
+- GET /api/offices/:id
+- POST /api/offices
+- PUT /api/offices/:id
+- DELETE /api/offices/:id
+
+==================================================
+18. Replit Requirements
+==================================================
+
+Make the project run well on Replit.
+
+Add root README.md explaining:
+
+- How to install backend
+- How to install frontend
+- How to import MySQL database
+- How to configure .env
+- How to run backend
+- How to run frontend
+- Default login credentials
+
+Add package scripts.
+
+Backend:
+npm install
+npm run dev
+
+Frontend:
+npm install
+npm run dev
+
+Also add instructions for Replit:
+- Use Node.js Repl
+- Start backend on port 5000
+- Start frontend on Vite port
+- Configure frontend API base URL to backend URL
+
+Make sure CORS is configured.
+
+==================================================
+19. UI / UX Requirements
+==================================================
+
+The UI must be Arabic RTL.
+
+Use these Arabic page titles:
+- تسجيل الدخول
+- لوحة التحكم
+- العملاء
+- المشاريع
+- تفاصيل المشروع
+- مراحل المشروع
+- المقايسة
+- خطط الاشتراك
+- المكاتب
+- صفحة الأسعار
+
+Use clean SaaS colors.
+Use readable fonts.
+Use simple tables and cards.
+Use badges for statuses.
+Use confirmation before delete.
+Show loading and error messages.
+
+Arabic messages:
+- تم الحفظ بنجاح
+- حدث خطأ، حاول مرة أخرى
+- هل أنت متأكد من الحذف؟
+- لا توجد بيانات حالياً
+
+==================================================
+20. Final Check
+==================================================
+
+After building the files, check that:
+
+- Backend starts without errors
+- Frontend starts without errors
+- Database schema is valid MySQL
+- Login works with admin@example.com / admin123
+- Dashboard loads stats
+- Clients CRUD works
+- Projects CRUD works
+- Workflow stages are created automatically for each new project
+- Stage status update works
+- Client feedback works
+- Estimate items work and totals are calculated
+- Plans CRUD works
+- Only one plan can be recommended
+- Public pricing page shows active plans only
+- Offices CRUD works
+- Arabic RTL layout works
+
+Do not add unnecessary complex features.
+This is an MVP.
+Prioritize working code over perfect design.
