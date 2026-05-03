@@ -28,6 +28,7 @@ export interface User {
   name: string;
   email: string;
   role: string;
+  officeId?: number | null;
   createdAt?: string;
 }
 

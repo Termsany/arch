@@ -1,14 +1,28 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { clientFeedbackTable, projectStagesTable } from "@workspace/db";
+import { clientFeedbackTable, projectStagesTable, projectsTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { authMiddleware } from "../lib/auth";
+import { authMiddleware, getUser } from "../lib/auth";
 
 const router = Router();
 
+async function checkProjectAccess(projectId: number, user: { role: string; officeId: number | null }): Promise<boolean> {
+  if (user.role === "super_admin") return true;
+  if (!user.officeId) return false;
+  const rows = await db.select({ officeId: projectsTable.officeId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
+  return rows[0]?.officeId === user.officeId;
+}
+
 router.get("/projects/:id/feedback", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
     const projectId = parseInt(req.params["id"]!);
+
+    if (!(await checkProjectAccess(projectId, user))) {
+      res.status(403).json({ error: "ليس لديك صلاحية الوصول لملاحظات هذا المشروع" });
+      return;
+    }
+
     const feedbacks = await db
       .select({
         id: clientFeedbackTable.id,
@@ -32,7 +46,14 @@ router.get("/projects/:id/feedback", authMiddleware, async (req, res) => {
 
 router.post("/projects/:id/feedback", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
     const projectId = parseInt(req.params["id"]!);
+
+    if (!(await checkProjectAccess(projectId, user))) {
+      res.status(403).json({ error: "ليس لديك صلاحية إضافة ملاحظات لهذا المشروع" });
+      return;
+    }
+
     const { stageId, feedbackText, feedbackType } = req.body as {
       stageId?: number; feedbackText: string; feedbackType: string;
     };

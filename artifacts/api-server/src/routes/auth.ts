@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { hashPassword, comparePassword, signToken, authMiddleware } from "../lib/auth";
+import { comparePassword, signToken, authMiddleware, getUser } from "../lib/auth";
 
 const router = Router();
 
@@ -24,8 +24,24 @@ router.post("/auth/login", async (req, res) => {
       res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
       return;
     }
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.createdAt } });
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      officeId: user.officeId ?? null,
+    });
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        officeId: user.officeId ?? null,
+        createdAt: user.createdAt,
+      },
+    });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
@@ -34,8 +50,8 @@ router.post("/auth/login", async (req, res) => {
 
 router.get("/auth/me", authMiddleware, async (req, res) => {
   try {
-    const user = (req as typeof req & { user: { id: number } }).user;
-    const users = await db.select().from(usersTable).where(eq(usersTable.id, user.id)).limit(1);
+    const authUser = getUser(req);
+    const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
     if (!users[0]) {
       res.status(404).json({ error: "المستخدم غير موجود" });
       return;
