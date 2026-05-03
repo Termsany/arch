@@ -1,0 +1,122 @@
+Add a client portal to the existing architecture SaaS MVP.
+
+Goal:
+Clients can log in, view their own projects, see project stages, approve stages, and request revisions.
+
+Tasks:
+
+1. Database
+Use the existing users table and add:
+- users.client_id nullable
+
+Add table:
+
+stage_approvals:
+- id
+- project_id
+- stage_id
+- client_id
+- approval_status ENUM('pending','approved','revision_requested')
+- comment TEXT
+- approved_at DATETIME nullable
+- created_at
+- updated_at
+
+2. Client User Role
+Add role:
+- client
+
+Client users must have:
+- office_id
+- client_id
+- role = client
+
+3. Backend Client Portal API
+Add routes:
+
+Auth:
+- Client can use existing POST /api/auth/login
+or create:
+- POST /api/client-auth/login
+
+Client portal:
+- GET /api/client-portal/projects
+- GET /api/client-portal/projects/:id
+- GET /api/client-portal/projects/:id/stages
+- GET /api/client-portal/projects/:id/feedback
+- POST /api/client-portal/stages/:stageId/approve
+- POST /api/client-portal/stages/:stageId/request-revision
+
+Security:
+- Client can only access projects where project.client_id = req.user.client_id.
+- Client cannot access admin pages or admin APIs.
+- Client cannot see internal notes.
+- Client cannot see estimates unless later enabled.
+
+4. Workflow Integration
+When stage status becomes:
+"في انتظار موافقة العميل"
+
+Create pending approval record if one does not exist.
+
+When client approves:
+- stage approval status = approved
+- stage status = تمت الموافقة
+- add feedback record with type موافقة
+
+When client requests revision:
+- stage approval status = revision_requested
+- stage status = يحتاج تعديل
+- add feedback record with type تعديل
+
+5. Admin Frontend
+In Client Details page:
+- Add button: إنشاء حساب بوابة العميل
+- Allow setting email and password
+- Show portal access status
+
+In Project Details:
+- Show approval status per stage
+- Show client approval history
+
+6. Client Frontend
+Add pages:
+- ClientLogin
+- ClientPortalDashboard
+- ClientProjectDetails
+
+Routes:
+- /client/login
+- /client/projects
+- /client/projects/:id
+
+Arabic labels:
+- بوابة العميل
+- مشاريعي
+- تفاصيل المشروع
+- مراحل المشروع
+- الحالة الحالية
+- الموافقة على المرحلة
+- طلب تعديل
+- اكتب ملاحظتك
+- إرسال
+- تمت الموافقة
+- تم طلب تعديل
+
+7. Seed
+Add client user:
+email: client@example.com
+password: client123
+
+Link this user to a sample client and project.
+
+8. Testing
+Test:
+- client login works.
+- client sees only their projects.
+- client cannot open admin dashboard.
+- client can approve stage.
+- client can request revision.
+- admin sees approval/revision in project details.
+
+Keep it simple. No file upload yet.
