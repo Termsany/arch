@@ -1,0 +1,114 @@
+Harden the existing SaaS app for production readiness.
+
+Goal:
+Make the app stable enough for real paying offices after completing:
+- Multi-tenancy
+- Client portal
+- Files & versions
+- Advanced BOQ
+- Subscription limits
+
+Do not add new business features.
+
+Tasks:
+
+1. Backend Security
+Add helmet.
+Add express-rate-limit on auth routes.
+Configure CORS using FRONTEND_URL from .env.
+Add centralized error handler.
+Add request logging.
+Add input validation using express-validator or zod.
+
+2. Standard API Responses
+Use this format for success:
+{
+  success: true,
+  data,
+  message
+}
+
+Use this format for errors:
+{
+  success: false,
+  message,
+  errors
+}
+
+3. Auth Improvements
+Add token expiration handling.
+Add frontend auto logout when token expires.
+Add change password endpoint:
+PUT /api/auth/change-password
+
+4. Validation
+Add validation for:
+- login
+- clients
+- projects
+- offices
+- plans
+- team users
+- estimates / BOQ
+- file uploads
+- client portal actions
+
+5. Frontend Improvements
+Add:
+- global API error handler
+- loading states
+- empty states
+- toast notifications
+- delete confirmations
+- better protected routes
+- clear Arabic error messages
+
+Arabic messages:
+- تم الحفظ بنجاح
+- حدث خطأ، حاول مرة أخرى
+- غير مصرح لك بتنفيذ هذا الإجراء
+- انتهت الجلسة، برجاء تسجيل الدخول مرة أخرى
+- لا توجد بيانات حالياً
+
+6. Environment
+Update .env.example:
+DB_HOST=
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
+PORT=
+JWT_SECRET=
+FRONTEND_URL=
+UPLOAD_DIR=
+MAX_FILE_SIZE_MB=
+
+7. Documentation
+Update README.md with:
+- Replit setup
+- database setup
+- environment variables
+- default users
+- feature list
+- troubleshooting
+
+Add TESTING.md with manual checklist:
+- super admin login
+- office admin login
+- office isolation
+- client portal login
+- clients CRUD
+- projects CRUD
+- workflow
+- client approval
+- file upload
+- BOQ
+- plan limits
+
+8. Final Check
+Run backend and frontend.
+Fix all runtime errors.
+Run frontend build.
+Fix React warnings and missing imports.
+
+Do not rewrite the app.
+Focus only on stability, security, and readiness.

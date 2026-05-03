@@ -10,9 +10,9 @@ function parseId(value: string | string[] | undefined): number {
   return parseInt(Array.isArray(value) ? value[0] : value || "0", 10);
 }
 
-function officeFilter(user: { role: string; officeId: number | null }) {
+function officeFilter(user: { role: string; officeId: number | null }): number | undefined {
   if (user.role === "super_admin") return undefined;
-  return user.officeId;
+  return user.officeId ?? -1;
 }
 
 router.get("/boq/categories", authMiddleware, async (req, res) => {

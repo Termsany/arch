@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { projectEstimatesTable, projectsTable, boqCategoriesTable } from "@workspace/db";
 import { eq, sum } from "drizzle-orm";
 import { authMiddleware, getUser } from "../lib/auth";
+import { validateBody } from "../lib/http";
+import { estimateSchema } from "../lib/validation";
 
 const router = Router();
 
@@ -40,7 +42,7 @@ router.get("/projects/:id/estimates", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/projects/:id/estimates", authMiddleware, async (req, res) => {
+router.post("/projects/:id/estimates", authMiddleware, validateBody(estimateSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const projectId = parseId(req.params["id"]);
@@ -55,7 +57,7 @@ router.post("/projects/:id/estimates", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/estimates/:estimateId", authMiddleware, async (req, res) => {
+router.put("/estimates/:estimateId", authMiddleware, validateBody(estimateSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const estimateId = parseId(req.params["estimateId"]);

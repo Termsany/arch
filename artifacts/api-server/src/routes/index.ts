@@ -13,6 +13,11 @@ import clientPortalRouter from "./client-portal";
 import filesRouter from "./files";
 import boqRouter from "./boq";
 import subscriptionRouter from "./subscription";
+import onboardingRouter from "./onboarding";
+import documentsRouter from "./documents";
+import notificationsRouter from "./notifications";
+import tasksRouter from "./tasks";
+import invoicesRouter from "./invoices";
 
 const router: IRouter = Router();
 
@@ -30,5 +35,10 @@ router.use(plansRouter);
 router.use(officesRouter);
 router.use(boqRouter);
 router.use(subscriptionRouter);
+router.use(onboardingRouter);
+router.use(documentsRouter);
+router.use(notificationsRouter);
+router.use(tasksRouter);
+router.use(invoicesRouter);
 
 export default router;

@@ -19,6 +19,7 @@ import { Plus, Edit2, Trash2, Search, KeyRound, CheckCircle2 } from "lucide-reac
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { parseApiResponse } from "@/lib/api-response";
 
 interface PortalUserInfo {
   id: number;
@@ -116,7 +117,7 @@ export default function Clients() {
       const res = await fetch(`/api/clients/${client.id}/portal-user`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data = await parseApiResponse<PortalUserInfo | null>(res);
       setPortalDialog(d => ({ ...d, existingUser: data, isLoading: false }));
       if (data?.email) setPortalForm(f => ({ ...f, email: data.email }));
     } catch {
@@ -135,8 +136,7 @@ export default function Clients() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(portalForm),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "حدث خطأ");
+      const data = await parseApiResponse<{ isNew: boolean; user: PortalUserInfo }>(res);
       toast({ title: data.isNew ? "تم إنشاء حساب البوابة بنجاح" : "تم تحديث بيانات الحساب بنجاح" });
       setPortalDialog(d => ({ ...d, open: false }));
     } catch (err) {

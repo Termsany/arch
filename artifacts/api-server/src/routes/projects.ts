@@ -4,6 +4,9 @@ import { projectsTable, clientsTable, projectStagesTable } from "@workspace/db";
 import { eq, sql, count } from "drizzle-orm";
 import { authMiddleware, getUser } from "../lib/auth";
 import { getOfficeSubscription } from "../lib/subscription";
+import { validateBody } from "../lib/http";
+import { projectSchema } from "../lib/validation";
+import { createNotification } from "../lib/notifications";
 
 const DEFAULT_STAGES = [
   "الاتفاق مع العميل وتحديد نوع التصميم",
@@ -62,7 +65,7 @@ router.get("/projects", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/projects", authMiddleware, async (req, res) => {
+router.post("/projects", authMiddleware, validateBody(projectSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const { clientId, projectName, designType, areaMeters, pricePerMeter, projectStatus, startDate, notes } = req.body as {
@@ -82,6 +85,12 @@ router.post("/projects", authMiddleware, async (req, res) => {
         if (sub.maxProjects && sub.maxProjects > 0) {
           const [{ total }] = await db.select({ total: count() }).from(projectsTable).where(eq(projectsTable.officeId, officeId));
           if (total >= sub.maxProjects) {
+            await createNotification({
+              officeId,
+              title: "حد الاشتراك",
+              message: `وصل المكتب إلى الحد الأقصى للمشاريع في الخطة الحالية (${sub.maxProjects} مشاريع).`,
+              notificationType: "subscription_limit",
+            });
             res.status(403).json({ error: `وصلت إلى الحد الأقصى للمشاريع في خطتك (${sub.maxProjects} مشاريع). يرجى الترقية للحصول على مزيد من المشاريع.` });
             return;
           }
@@ -148,12 +157,16 @@ router.get("/projects/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/projects/:id", authMiddleware, async (req, res) => {
+router.put("/projects/:id", authMiddleware, validateBody(projectSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const id = Number(req.params["id"]);
 
-    const existing = await db.select({ officeId: projectsTable.officeId }).from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
+    const existing = await db
+      .select({ officeId: projectsTable.officeId, projectStatus: projectsTable.projectStatus, projectName: projectsTable.projectName })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, id))
+      .limit(1);
     if (!existing[0]) {
       res.status(404).json({ error: "المشروع غير موجود" });
       return;
@@ -185,6 +198,15 @@ router.put("/projects/:id", authMiddleware, async (req, res) => {
       })
       .where(eq(projectsTable.id, id))
       .returning();
+    if (existing[0].projectStatus !== projectStatus && existing[0].officeId) {
+      await createNotification({
+        officeId: existing[0].officeId,
+        projectId: id,
+        title: "تحديث حالة المشروع",
+        message: `تم تغيير حالة مشروع "${existing[0].projectName}" من "${existing[0].projectStatus}" إلى "${projectStatus}".`,
+        notificationType: "project_status_change",
+      });
+    }
     res.json(updated);
   } catch (err) {
     req.log.error(err);

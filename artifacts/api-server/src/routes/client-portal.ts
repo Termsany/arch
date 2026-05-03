@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { clientPortalMiddleware, getUser } from "../lib/auth";
+import { createNotification } from "../lib/notifications";
 
 const router = Router();
 
@@ -202,6 +203,22 @@ router.post("/client-portal/stages/:stageId/approve", clientPortalMiddleware, as
       feedbackType: "موافقة",
     });
 
+    const projectRows = await db
+      .select({ officeId: projectsTable.officeId, projectName: projectsTable.projectName })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, stage[0].projectId))
+      .limit(1);
+    const project = projectRows[0];
+    if (project?.officeId) {
+      await createNotification({
+        officeId: project.officeId,
+        projectId: stage[0].projectId,
+        title: "موافقة العميل",
+        message: `وافق العميل على مرحلة "${stage[0].stageName}" في مشروع "${project.projectName}".`,
+        notificationType: "client_approval",
+      });
+    }
+
     res.json({ success: true, message: "تمت الموافقة على المرحلة بنجاح" });
   } catch (err) {
     req.log.error(err);
@@ -266,6 +283,22 @@ router.post("/client-portal/stages/:stageId/request-revision", clientPortalMiddl
       feedbackText: comment,
       feedbackType: "تعديل",
     });
+
+    const projectRows = await db
+      .select({ officeId: projectsTable.officeId, projectName: projectsTable.projectName })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, stage[0].projectId))
+      .limit(1);
+    const project = projectRows[0];
+    if (project?.officeId) {
+      await createNotification({
+        officeId: project.officeId,
+        projectId: stage[0].projectId,
+        title: "طلب تعديل",
+        message: `طلب العميل تعديل مرحلة "${stage[0].stageName}" في مشروع "${project.projectName}".`,
+        notificationType: "revision_request",
+      });
+    }
 
     res.json({ success: true, message: "تم إرسال طلب التعديل بنجاح" });
   } catch (err) {

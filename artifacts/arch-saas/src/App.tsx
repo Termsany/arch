@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -8,9 +9,16 @@ import { Loader2 } from "lucide-react";
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import Pricing from "./pages/pricing";
+import Start from "./pages/start";
 import Clients from "./pages/clients";
 import Projects from "./pages/projects";
 import ProjectDetails from "./pages/project-details";
+import DocumentViewer from "./pages/document-viewer";
+import NotificationsPage from "./pages/notifications";
+import TasksPage from "./pages/tasks";
+import InvoicesPage from "./pages/invoices";
+import InvoiceDetailsPage from "./pages/invoice-details";
+import InvoiceFormPage from "./pages/invoice-form";
 import Plans from "./pages/plans";
 import Offices from "./pages/offices";
 import BOQLibrary from "./pages/boq-library";
@@ -29,6 +37,16 @@ const queryClient = new QueryClient({
   },
 });
 
+function NavigateTo({ path }: { path: string }) {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation(path);
+  }, [path, setLocation]);
+
+  return null;
+}
+
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
 
@@ -41,8 +59,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   }
 
   if (!user) {
-    window.location.href = "/login";
-    return null;
+    return <NavigateTo path="/login" />;
   }
 
   return <Component />;
@@ -52,8 +69,7 @@ function ClientProtectedRoute({ component: Component }: { component: React.Compo
   const { clientUser } = useClientAuth();
 
   if (!clientUser) {
-    window.location.href = "/client/login";
-    return null;
+    return <NavigateTo path="/client/login" />;
   }
 
   return <Component />;
@@ -71,6 +87,7 @@ function Router() {
       </Route>
       <Route path="/login" component={Login} />
       <Route path="/pricing" component={Pricing} />
+      <Route path="/start" component={Start} />
       <Route path="/">
         {() => <ProtectedRoute component={Dashboard} />}
       </Route>
@@ -80,8 +97,23 @@ function Router() {
       <Route path="/projects">
         {() => <ProtectedRoute component={Projects} />}
       </Route>
+      <Route path="/tasks">
+        {() => <ProtectedRoute component={TasksPage} />}
+      </Route>
+      <Route path="/invoices">
+        {() => <ProtectedRoute component={InvoicesPage} />}
+      </Route>
+      <Route path="/invoices/:id">
+        {() => <ProtectedRoute component={InvoiceDetailsPage} />}
+      </Route>
+      <Route path="/projects/:id/invoices/new">
+        {() => <ProtectedRoute component={InvoiceFormPage} />}
+      </Route>
       <Route path="/projects/:id">
         {() => <ProtectedRoute component={ProjectDetails} />}
+      </Route>
+      <Route path="/documents/:id">
+        {() => <ProtectedRoute component={DocumentViewer} />}
       </Route>
       <Route path="/plans">
         {() => <ProtectedRoute component={Plans} />}
@@ -94,6 +126,9 @@ function Router() {
       </Route>
       <Route path="/subscription">
         {() => <ProtectedRoute component={Subscription} />}
+      </Route>
+      <Route path="/notifications">
+        {() => <ProtectedRoute component={NotificationsPage} />}
       </Route>
       <Route component={NotFound} />
     </Switch>

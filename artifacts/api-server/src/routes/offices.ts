@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { officesTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { authMiddleware } from "../lib/auth";
+import { validateBody } from "../lib/http";
+import { officeSchema } from "../lib/validation";
 
 const router = Router();
 
@@ -34,7 +36,7 @@ router.get("/offices", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/offices", authMiddleware, async (req, res) => {
+router.post("/offices", authMiddleware, validateBody(officeSchema), async (req, res) => {
   try {
     const body = req.body as Record<string, unknown>;
     const [office] = await db
@@ -92,7 +94,7 @@ router.get("/offices/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/offices/:id", authMiddleware, async (req, res) => {
+router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     const body = req.body as Record<string, unknown>;

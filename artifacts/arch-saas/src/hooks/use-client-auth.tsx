@@ -24,7 +24,10 @@ const ClientAuthContext = createContext<ClientAuthContextType | undefined>(undef
 
 function decodeJwt(token: string): ClientUser | null {
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]!));
+    const payload = JSON.parse(atob(token.split(".")[1]!)) as ClientUser & { exp?: number };
+    if (typeof payload.exp === "number" && payload.exp * 1000 <= Date.now()) {
+      return null;
+    }
     return payload as ClientUser;
   } catch {
     return null;
@@ -55,6 +58,19 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
     }
   }, [clientToken]);
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      localStorage.removeItem("clientToken");
+      setClientToken(null);
+      setClientUser(null);
+      setLocation("/client/login");
+      toast({ title: "انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى", variant: "destructive" });
+    };
+
+    window.addEventListener("api:client-unauthorized", onUnauthorized);
+    return () => window.removeEventListener("api:client-unauthorized", onUnauthorized);
+  }, [setLocation]);
+
   const loginAsClient = async (email: string, password: string) => {
     setIsLoading(true);
     try {
@@ -78,6 +94,7 @@ export function ClientAuthProvider({ children }: { children: React.ReactNode }) 
     localStorage.removeItem("clientToken");
     setClientToken(null);
     setClientUser(null);
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     setLocation("/client/login");
   };
 

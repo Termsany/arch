@@ -1,3 +1,5 @@
+import { getApiMessage, unwrapApiResponse } from "@/lib/api-response";
+
 const API_BASE = "/api";
 
 function getClientToken(): string {
@@ -13,11 +15,14 @@ async function clientFetch<T>(path: string, options?: RequestInit): Promise<T> {
       ...(options?.headers ?? {}),
     },
   });
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(err.error || res.statusText);
+    if (res.status === 401) {
+      window.dispatchEvent(new CustomEvent("api:client-unauthorized"));
+    }
+    throw new Error(getApiMessage(data, res.statusText));
   }
-  return res.json() as Promise<T>;
+  return unwrapApiResponse<T>(data);
 }
 
 export async function clientLogin(email: string, password: string): Promise<{ token: string; user: { id: number; name: string; email: string; role: string; clientId: number | null } }> {
@@ -26,9 +31,9 @@ export async function clientLogin(email: string, password: string): Promise<{ to
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "خطأ في تسجيل الدخول");
-  return data;
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(getApiMessage(data, "خطأ في تسجيل الدخول"));
+  return unwrapApiResponse(data);
 }
 
 export interface ClientProject {
@@ -102,6 +107,8 @@ export interface ClientFile {
   fileName: string;
   originalName: string;
   filePath: string;
+  fileUrl?: string | null;
+  storageProvider?: string | null;
   fileType: string;
   fileSize: number;
   versionNumber: number;

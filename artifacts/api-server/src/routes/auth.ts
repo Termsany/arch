@@ -2,26 +2,31 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { comparePassword, signToken, authMiddleware, clientPortalMiddleware, getUser } from "../lib/auth";
+import {
+  anyAuthMiddleware,
+  authMiddleware,
+  clientPortalMiddleware,
+  comparePassword,
+  getUser,
+  hashPassword,
+  signToken,
+} from "../lib/auth";
+import { asyncHandler, fail, ok, validateBody } from "../lib/http";
+import { changePasswordSchema, loginSchema, resetPasswordSchema } from "../lib/validation";
 
 const router = Router();
 
-router.post("/auth/login", async (req, res) => {
-  try {
+router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, res) => {
     const { email, password } = req.body as { email: string; password: string };
-    if (!email || !password) {
-      res.status(400).json({ error: "البريد الإلكتروني وكلمة المرور مطلوبان" });
-      return;
-    }
     const users = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     const user = users[0];
     if (!user) {
-      res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+      fail(res, 401, "بيانات الدخول غير صحيحة");
       return;
     }
     const valid = await comparePassword(password, user.passwordHash);
     if (!valid) {
-      res.status(401).json({ error: "بيانات الدخول غير صحيحة" });
+      fail(res, 401, "بيانات الدخول غير صحيحة");
       return;
     }
     const token = signToken({
@@ -32,7 +37,7 @@ router.post("/auth/login", async (req, res) => {
       officeId: user.officeId ?? null,
       clientId: user.clientId ?? null,
     });
-    res.json({
+    ok(res, {
       token,
       user: {
         id: user.id,
@@ -43,45 +48,61 @@ router.post("/auth/login", async (req, res) => {
         clientId: user.clientId ?? null,
         createdAt: user.createdAt,
       },
-    });
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
-  }
-});
+    }, 200, "تم تسجيل الدخول بنجاح");
+}));
 
-router.get("/auth/me", authMiddleware, async (req, res) => {
-  try {
+router.get("/auth/me", authMiddleware, asyncHandler(async (req, res) => {
     const authUser = getUser(req);
     const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
     if (!users[0]) {
-      res.status(404).json({ error: "المستخدم غير موجود" });
+      fail(res, 404, "المستخدم غير موجود");
       return;
     }
     const { passwordHash, ...safe } = users[0];
     void passwordHash;
-    res.json(safe);
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
-  }
-});
+    ok(res, safe);
+}));
 
-router.get("/auth/client-me", clientPortalMiddleware, async (req, res) => {
-  try {
+router.get("/auth/client-me", clientPortalMiddleware, asyncHandler(async (req, res) => {
     const authUser = getUser(req);
     const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
     if (!users[0]) {
-      res.status(404).json({ error: "المستخدم غير موجود" });
+      fail(res, 404, "المستخدم غير موجود");
       return;
     }
     const { passwordHash, ...safe } = users[0];
     void passwordHash;
-    res.json(safe);
-  } catch (err) {
-    req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    ok(res, safe);
+}));
+
+router.put("/auth/change-password", anyAuthMiddleware, validateBody(changePasswordSchema), asyncHandler(async (req, res) => {
+  const authUser = getUser(req);
+  const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+  const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
+  const user = users[0];
+
+  if (!user) {
+    fail(res, 404, "المستخدم غير موجود");
+    return;
   }
+
+  const valid = await comparePassword(currentPassword, user.passwordHash);
+  if (!valid) {
+    fail(res, 400, "كلمة المرور الحالية غير صحيحة");
+    return;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  await db.update(usersTable).set({ passwordHash, updatedAt: new Date() }).where(eq(usersTable.id, authUser.id));
+  ok(res, null, 200, "تم تغيير كلمة المرور بنجاح");
+}));
+
+router.post("/auth/reset-password", validateBody(resetPasswordSchema), asyncHandler(async (_req, res) => {
+  ok(res, null, 202, "إذا كان البريد مسجلاً سيتم إرسال تعليمات إعادة التعيين لاحقاً");
+}));
+
+router.post("/auth/logout", (_req, res) => {
+  ok(res, null, 200, "تم تسجيل الخروج بنجاح");
 });
 
 export default router;

@@ -4,6 +4,9 @@ import { clientsTable, usersTable } from "@workspace/db";
 import { eq, count } from "drizzle-orm";
 import { authMiddleware, getUser, hashPassword } from "../lib/auth";
 import { getOfficeSubscription } from "../lib/subscription";
+import { validateBody } from "../lib/http";
+import { clientSchema, portalUserSchema } from "../lib/validation";
+import { createNotification } from "../lib/notifications";
 
 const router = Router();
 
@@ -29,16 +32,12 @@ router.get("/clients", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/clients", authMiddleware, async (req, res) => {
+router.post("/clients", authMiddleware, validateBody(clientSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const { name, phone, email, address, notes } = req.body as {
       name: string; phone?: string; email?: string; address?: string; notes?: string;
     };
-    if (!name) {
-      res.status(400).json({ error: "اسم العميل مطلوب" });
-      return;
-    }
     const officeId = user.role === "super_admin" ? (req.body.officeId ?? null) : user.officeId;
 
     if (user.role !== "super_admin" && officeId) {
@@ -51,6 +50,12 @@ router.post("/clients", authMiddleware, async (req, res) => {
         if (sub.maxClients && sub.maxClients > 0) {
           const [{ total }] = await db.select({ total: count() }).from(clientsTable).where(eq(clientsTable.officeId, officeId));
           if (total >= sub.maxClients) {
+            await createNotification({
+              officeId,
+              title: "حد الاشتراك",
+              message: `وصل المكتب إلى الحد الأقصى للعملاء في الخطة الحالية (${sub.maxClients} عملاء).`,
+              notificationType: "subscription_limit",
+            });
             res.status(403).json({ error: `وصلت إلى الحد الأقصى للعملاء في خطتك (${sub.maxClients} عملاء). يرجى الترقية للحصول على مزيد من العملاء.` });
             return;
           }
@@ -88,7 +93,7 @@ router.get("/clients/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/clients/:id", authMiddleware, async (req, res) => {
+router.put("/clients/:id", authMiddleware, validateBody(clientSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const id = Number(req.params["id"]);
@@ -169,20 +174,11 @@ router.get("/clients/:id/portal-user", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/clients/:id/portal-user", authMiddleware, async (req, res) => {
+router.post("/clients/:id/portal-user", authMiddleware, validateBody(portalUserSchema), async (req, res) => {
   try {
     const user = getUser(req);
     const clientId = Number(req.params["id"]);
     const { email, password } = req.body as { email: string; password: string };
-
-    if (!email || !password) {
-      res.status(400).json({ error: "البريد الإلكتروني وكلمة المرور مطلوبان" });
-      return;
-    }
-    if (password.length < 6) {
-      res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
-      return;
-    }
 
     const client = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId)).limit(1);
     if (!client[0]) {

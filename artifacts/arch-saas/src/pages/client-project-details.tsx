@@ -291,7 +291,7 @@ export default function ClientProjectDetails() {
                                 {file.notes && <span>• {file.notes}</span>}
                               </div>
                             </div>
-                            <a href={file.filePath} download={file.originalName} target="_blank" rel="noreferrer">
+                            <a href={file.fileUrl || `/api${file.filePath}`} download={file.originalName} target="_blank" rel="noreferrer">
                               <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
                                 <Download className="w-3.5 h-3.5" />
                                 تحميل

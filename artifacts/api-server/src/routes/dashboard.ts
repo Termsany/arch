@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { clientsTable, projectsTable, subscriptionPlansTable, officesTable } from "@workspace/db";
-import { eq, count, sql, and } from "drizzle-orm";
+import { eq, count, sql, and, inArray } from "drizzle-orm";
 import { authMiddleware, getUser } from "../lib/auth";
 
 const router = Router();
@@ -29,13 +29,13 @@ router.get("/dashboard/stats", authMiddleware, async (req, res) => {
       db.select({ count: count() }).from(clientsTable).where(clientFilter),
       db.select({ count: count() }).from(projectsTable).where(projectFilter),
       db.select({ count: count() }).from(projectsTable).where(
-        and(eq(projectsTable.projectStatus, "جاري"), projectFilter)
+        and(inArray(projectsTable.projectStatus, ["جاري", "جاري العمل", "جاري التنفيذ", "التنفيذ"]), projectFilter)
       ),
       db.select({ count: count() }).from(projectsTable).where(
         and(eq(projectsTable.projectStatus, "في انتظار موافقة العميل"), projectFilter)
       ),
       db.select({ count: count() }).from(projectsTable).where(
-        and(eq(projectsTable.projectStatus, "مكتمل"), projectFilter)
+        and(inArray(projectsTable.projectStatus, ["مكتمل", "مكتملة"]), projectFilter)
       ),
       isSuperAdmin ? db.select({ count: count() }).from(subscriptionPlansTable) : Promise.resolve([{ count: 0 }]),
       isSuperAdmin ? db.select({ count: count() }).from(subscriptionPlansTable).where(eq(subscriptionPlansTable.isActive, true)) : Promise.resolve([{ count: 0 }]),

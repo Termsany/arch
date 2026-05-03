@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -6,14 +6,8 @@ import { db } from "@workspace/db";
 import { projectFilesTable, projectsTable, projectStagesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { authMiddleware, clientPortalMiddleware, getUser } from "../lib/auth";
-import { fileURLToPath } from "url";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR = path.resolve(__dirname, "../../uploads");
-
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-}
+import { createNotification } from "../lib/notifications";
+import { deleteStoredFile, saveUploadedFile, UPLOADS_DIR } from "../lib/storage";
 
 const MAX_FILE_SIZE_MB = parseInt(process.env["MAX_FILE_SIZE_MB"] || "25", 10);
 
@@ -33,17 +27,8 @@ const ALLOWED_EXTS = new Set([
   ".docx", ".xlsx",
 ]);
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
-    cb(null, unique);
-  },
-});
-
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE_MB * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
@@ -54,6 +39,16 @@ const upload = multer({
     }
   },
 });
+
+function uploadSingleFile(req: Request, res: Response, next: NextFunction) {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "تعذر رفع الملف" });
+      return;
+    }
+    next();
+  });
+}
 
 const router = Router();
 
@@ -67,6 +62,15 @@ async function checkProjectAccess(projectId: number, user: { role: string; offic
 async function getProjectOfficeId(projectId: number): Promise<number | null> {
   const rows = await db.select({ officeId: projectsTable.officeId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
   return rows[0]?.officeId ?? null;
+}
+
+async function getProjectNotificationContext(projectId: number) {
+  const rows = await db
+    .select({ officeId: projectsTable.officeId, clientId: projectsTable.clientId, projectName: projectsTable.projectName })
+    .from(projectsTable)
+    .where(eq(projectsTable.id, projectId))
+    .limit(1);
+  return rows[0] ?? null;
 }
 
 router.get("/uploads/:filename", (req, res) => {
@@ -96,6 +100,8 @@ router.get("/projects/:id/files", authMiddleware, async (req, res) => {
         fileName: projectFilesTable.fileName,
         originalName: projectFilesTable.originalName,
         filePath: projectFilesTable.filePath,
+        fileUrl: projectFilesTable.fileUrl,
+        storageProvider: projectFilesTable.storageProvider,
         fileType: projectFilesTable.fileType,
         fileSize: projectFilesTable.fileSize,
         versionNumber: projectFilesTable.versionNumber,
@@ -134,12 +140,11 @@ router.get("/stages/:stageId/files", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/projects/:id/files", authMiddleware, upload.single("file"), async (req, res) => {
+router.post("/projects/:id/files", authMiddleware, uploadSingleFile, async (req, res) => {
   try {
     const user = getUser(req);
     const projectId = Number(req.params["id"]);
     if (!(await checkProjectAccess(projectId, user))) {
-      if (req.file) fs.unlinkSync(req.file.path);
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
       return;
     }
@@ -170,15 +175,22 @@ router.post("/projects/:id/files", authMiddleware, upload.single("file"), async 
 
     const nextVersion = (existingVersions[0]?.versionNumber ?? 0) + 1;
     const officeId = await getProjectOfficeId(projectId);
+    const stored = await saveUploadedFile({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+    });
 
     const [inserted] = await db.insert(projectFilesTable).values({
       projectId,
       officeId,
       stageId: parsedStageId,
       uploadedBy: user.id,
-      fileName: req.file.filename,
+      fileName: stored.fileName,
       originalName: req.file.originalname,
-      filePath: `/uploads/${req.file.filename}`,
+      filePath: stored.filePath,
+      fileUrl: stored.fileUrl,
+      storageProvider: stored.provider,
       fileType: req.file.mimetype || path.extname(req.file.originalname).slice(1),
       fileSize: req.file.size,
       versionNumber: nextVersion,
@@ -188,9 +200,27 @@ router.post("/projects/:id/files", authMiddleware, upload.single("file"), async 
       isApprovedVersion: false,
     }).returning();
 
+    if (vis === "client_visible") {
+      const project = await getProjectNotificationContext(projectId);
+      if (project?.clientId) {
+        await createNotification({
+          officeId: project.officeId,
+          clientId: project.clientId,
+          projectId,
+          title: "ملف جديد",
+          message: `تمت إضافة ملف جديد في مشروع "${project.projectName}": ${req.file.originalname}.`,
+          notificationType: "file_visible",
+        });
+      }
+    }
+
     res.status(201).json(inserted);
   } catch (err) {
     req.log.error(err);
+    if (err instanceof Error && err.message.includes("S3 storage")) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
     res.status(500).json({ error: "حدث خطأ في الخادم" });
   }
 });
@@ -233,8 +263,11 @@ router.delete("/files/:fileId", authMiddleware, async (req, res) => {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
       return;
     }
-    const absPath = path.join(UPLOADS_DIR, file[0].fileName);
-    if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
+    await deleteStoredFile({
+      provider: file[0].storageProvider,
+      fileName: file[0].fileName,
+      filePath: file[0].filePath,
+    });
     await db.delete(projectFilesTable).where(eq(projectFilesTable.id, fileId));
     res.json({ success: true });
   } catch (err) {
@@ -291,6 +324,19 @@ router.patch("/files/:fileId/toggle-client-visible", authMiddleware, async (req,
       .set({ visibility: newVisibility, updatedAt: new Date() })
       .where(eq(projectFilesTable.id, fileId))
       .returning();
+    if (newVisibility === "client_visible") {
+      const project = await getProjectNotificationContext(file[0].projectId);
+      if (project?.clientId) {
+        await createNotification({
+          officeId: project.officeId,
+          clientId: project.clientId,
+          projectId: file[0].projectId,
+          title: "ملف جديد",
+          message: `تمت إتاحة ملف جديد لك في مشروع "${project.projectName}": ${file[0].originalName}.`,
+          notificationType: "file_visible",
+        });
+      }
+    }
     res.json(updated);
   } catch (err) {
     req.log.error(err);
@@ -317,6 +363,8 @@ router.get("/client-portal/projects/:id/files", clientPortalMiddleware, async (r
         fileName: projectFilesTable.fileName,
         originalName: projectFilesTable.originalName,
         filePath: projectFilesTable.filePath,
+        fileUrl: projectFilesTable.fileUrl,
+        storageProvider: projectFilesTable.storageProvider,
         fileType: projectFilesTable.fileType,
         fileSize: projectFilesTable.fileSize,
         versionNumber: projectFilesTable.versionNumber,

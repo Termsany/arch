@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CheckCircle2, XCircle, Users, FolderOpen, Database, Building2, CreditCard, AlertTriangle } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { parseApiResponse } from "@/lib/api-response";
 
 interface SubscriptionInfo {
   isSuperAdmin: boolean;
@@ -82,10 +83,7 @@ export default function Subscription() {
   useEffect(() => {
     const token = localStorage.getItem("token") || "";
     fetch("/api/subscription/my", { headers: { Authorization: `Bearer ${token}` } })
-      .then(async r => {
-        if (!r.ok) { const e = await r.json().catch(() => ({})) as { error?: string }; throw new Error(e.error || "خطأ"); }
-        return r.json() as Promise<SubscriptionInfo>;
-      })
+      .then(r => parseApiResponse<SubscriptionInfo>(r))
       .then(setInfo)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false));

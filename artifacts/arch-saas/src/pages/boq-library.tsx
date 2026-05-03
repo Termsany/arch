@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Edit2, Trash2, BookOpen, Tag } from "lucide-react";
+import { parseApiResponse } from "@/lib/api-response";
 
 interface BoqCategory {
   id: number;
@@ -71,8 +72,8 @@ export default function BOQLibrary() {
         fetch("/api/boq/categories", { headers: authHeaders() }),
         fetch("/api/boq/library", { headers: authHeaders() }),
       ]);
-      setCategories(catRes.ok ? await catRes.json() : []);
-      setItems(itemRes.ok ? await itemRes.json() : []);
+      setCategories(catRes.ok ? await parseApiResponse<BoqCategory[]>(catRes) : []);
+      setItems(itemRes.ok ? await parseApiResponse<BoqItem[]>(itemRes) : []);
     } catch {
       toast({ title: "تعذّر التحميل", variant: "destructive" });
     } finally {
@@ -100,7 +101,7 @@ export default function BOQLibrary() {
       const url = editCat ? `/api/boq/categories/${editCat.id}` : "/api/boq/categories";
       const method = editCat ? "PUT" : "POST";
       const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(catForm) });
-      if (!res.ok) throw new Error();
+      await parseApiResponse(res);
       toast({ title: editCat ? "تم تحديث التصنيف" : "تم إضافة التصنيف" });
       setCatOpen(false);
       load();
@@ -112,7 +113,7 @@ export default function BOQLibrary() {
   };
   const deleteCat = async (id: number) => {
     try {
-      await fetch(`/api/boq/categories/${id}`, { method: "DELETE", headers: authHeaders() });
+      await parseApiResponse(await fetch(`/api/boq/categories/${id}`, { method: "DELETE", headers: authHeaders() }));
       toast({ title: "تم حذف التصنيف" });
       load();
     } catch {
@@ -151,7 +152,7 @@ export default function BOQLibrary() {
         categoryId: itemForm.categoryId ? parseInt(itemForm.categoryId) : null,
       };
       const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
-      if (!res.ok) throw new Error();
+      await parseApiResponse(res);
       toast({ title: editItem ? "تم تحديث البند" : "تم إضافة البند للمكتبة" });
       setItemOpen(false);
       load();
@@ -163,7 +164,7 @@ export default function BOQLibrary() {
   };
   const deleteItem = async (id: number) => {
     try {
-      await fetch(`/api/boq/library/${id}`, { method: "DELETE", headers: authHeaders() });
+      await parseApiResponse(await fetch(`/api/boq/library/${id}`, { method: "DELETE", headers: authHeaders() }));
       toast({ title: "تم حذف البند" });
       load();
     } catch {

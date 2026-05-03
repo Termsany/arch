@@ -1,0 +1,13 @@
+.git
+.agents
+.local
+node_modules
+**/node_modules
+**/dist
+**/.vite
+artifacts/api-server/uploads
+artifacts/uploads
+attached_assets
+*.log
+.env
+.env.local

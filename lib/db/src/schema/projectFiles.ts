@@ -15,6 +15,8 @@ export const projectFilesTable = pgTable("project_files", {
   fileName: varchar("file_name", { length: 300 }).notNull(),
   originalName: varchar("original_name", { length: 300 }).notNull(),
   filePath: varchar("file_path", { length: 500 }).notNull(),
+  fileUrl: varchar("file_url", { length: 1000 }),
+  storageProvider: varchar("storage_provider", { length: 50 }).notNull().default("local"),
   fileType: varchar("file_type", { length: 100 }).notNull(),
   fileSize: bigint("file_size", { mode: "number" }).notNull(),
   versionNumber: integer("version_number").notNull().default(1),

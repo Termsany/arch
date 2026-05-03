@@ -1,8 +1,15 @@
 import jwt from "jsonwebtoken";
+import type { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { type Request, type Response, type NextFunction } from "express";
+import { fail } from "./http";
 
 const JWT_SECRET = process.env["JWT_SECRET"] || "architecture_saas_secret_2024";
+const TOKEN_EXPIRES_IN = (process.env["JWT_EXPIRES_IN"] || "7d") as SignOptions["expiresIn"];
+
+if (process.env["NODE_ENV"] === "production" && !process.env["JWT_SECRET"]) {
+  throw new Error("JWT_SECRET environment variable is required in production.");
+}
 
 export type AuthUser = {
   id: number;
@@ -14,7 +21,7 @@ export type AuthUser = {
 };
 
 export function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
+  return bcrypt.hash(password, 12);
 }
 
 export function comparePassword(password: string, hash: string): Promise<boolean> {
@@ -22,7 +29,7 @@ export function comparePassword(password: string, hash: string): Promise<boolean
 }
 
 export function signToken(payload: AuthUser): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: TOKEN_EXPIRES_IN });
 }
 
 export function verifyToken(token: string): AuthUser | null {
@@ -37,42 +44,48 @@ export function getUser(req: Request): AuthUser {
   return (req as Request & { user: AuthUser }).user;
 }
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+function attachUser(req: Request, res: Response): AuthUser | null {
   const authHeader = req.headers["authorization"];
   if (!authHeader?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
+    fail(res, 401, "Unauthorized");
+    return null;
   }
+
   const token = authHeader.slice(7);
-  const payload = verifyToken(token);
-  if (!payload) {
-    res.status(401).json({ error: "Invalid or expired token" });
-    return;
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
+    (req as Request & { user: AuthUser }).user = payload;
+    return payload;
+  } catch (err) {
+    const message = err instanceof jwt.TokenExpiredError ? "انتهت صلاحية الجلسة" : "Invalid or expired token";
+    fail(res, 401, message);
+    return null;
   }
+}
+
+export function anyAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const payload = attachUser(req, res);
+  if (!payload) return;
+  next();
+}
+
+export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const payload = attachUser(req, res);
+  if (!payload) return;
   if (payload.role === "client") {
-    res.status(403).json({ error: "غير مصرح لك بالوصول لهذه الصفحة" });
+    fail(res, 403, "غير مصرح لك بالوصول لهذه الصفحة");
     return;
   }
-  (req as Request & { user: AuthUser }).user = payload;
   next();
 }
 
 export function clientPortalMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers["authorization"];
-  if (!authHeader?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  const token = authHeader.slice(7);
-  const payload = verifyToken(token);
-  if (!payload) {
-    res.status(401).json({ error: "Invalid or expired token" });
-    return;
-  }
+  const payload = attachUser(req, res);
+  if (!payload) return;
   if (payload.role !== "client") {
-    res.status(403).json({ error: "هذه الصفحة مخصصة للعملاء فقط" });
+    fail(res, 403, "هذه الصفحة مخصصة للعملاء فقط");
     return;
   }
-  (req as Request & { user: AuthUser }).user = payload;
   next();
 }

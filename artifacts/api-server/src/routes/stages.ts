@@ -3,6 +3,9 @@ import { db } from "@workspace/db";
 import { projectStagesTable, projectsTable, stageApprovalsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware, getUser } from "../lib/auth";
+import { validateBody } from "../lib/http";
+import { stageUpdateSchema } from "../lib/validation";
+import { createNotification } from "../lib/notifications";
 
 const router = Router();
 
@@ -16,7 +19,7 @@ async function checkProjectAccess(projectId: number, userId: { role: string; off
 router.get("/projects/:id/stages", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"]));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول لمراحل هذا المشروع" });
@@ -38,7 +41,7 @@ router.get("/projects/:id/stages", authMiddleware, async (req, res) => {
 router.get("/projects/:id/approvals", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"]));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
@@ -56,10 +59,10 @@ router.get("/projects/:id/approvals", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/stages/:stageId", authMiddleware, async (req, res) => {
+router.put("/stages/:stageId", authMiddleware, validateBody(stageUpdateSchema), async (req, res) => {
   try {
     const user = getUser(req);
-    const stageId = parseInt(req.params["stageId"]!);
+    const stageId = parseInt(String(req.params["stageId"]));
 
     const stage = await db.select().from(projectStagesTable).where(eq(projectStagesTable.id, stageId)).limit(1);
     if (!stage[0]) {
@@ -83,7 +86,7 @@ router.put("/stages/:stageId", authMiddleware, async (req, res) => {
 
     if (status === "في انتظار موافقة العميل") {
       const project = await db
-        .select({ clientId: projectsTable.clientId })
+        .select({ clientId: projectsTable.clientId, officeId: projectsTable.officeId, projectName: projectsTable.projectName })
         .from(projectsTable)
         .where(eq(projectsTable.id, stage[0].projectId))
         .limit(1);
@@ -109,6 +112,14 @@ router.put("/stages/:stageId", authMiddleware, async (req, res) => {
             .set({ approvalStatus: "pending", approvedAt: null, comment: null, updatedAt: new Date() })
             .where(eq(stageApprovalsTable.id, existing[0].id));
         }
+        await createNotification({
+          officeId: project[0]?.officeId ?? null,
+          clientId,
+          projectId: stage[0].projectId,
+          title: "موافقة مطلوبة",
+          message: `مرحلة "${stage[0].stageName}" في مشروع "${project[0]?.projectName ?? ""}" تنتظر موافقتك.`,
+          notificationType: "stage_waiting_client",
+        });
       }
     }
 

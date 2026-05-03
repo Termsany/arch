@@ -171,6 +171,24 @@ function buildErrorMessage(response: Response, data: unknown): string {
   return prefix;
 }
 
+function unwrapApiEnvelope(data: unknown): unknown {
+  if (
+    data &&
+    typeof data === "object" &&
+    "success" in data &&
+    typeof (data as { success?: unknown }).success === "boolean"
+  ) {
+    return (data as { data?: unknown }).data ?? null;
+  }
+
+  return data;
+}
+
+function notifyUnauthorized(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("api:unauthorized"));
+}
+
 export class ApiError<T = unknown> extends Error {
   readonly name = "ApiError";
   readonly status: number;
@@ -364,8 +382,12 @@ export async function customFetch<T = unknown>(
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (response.status === 401) {
+      notifyUnauthorized();
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  const data = await parseSuccessBody(response, responseType, requestInfo);
+  return unwrapApiEnvelope(data) as T;
 }

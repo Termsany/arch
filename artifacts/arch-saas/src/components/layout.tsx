@@ -1,15 +1,19 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
+import { NotificationBell } from "@/components/notification-bell";
 
 const ALL_NAV_ITEMS = [
   { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false, officeOnly: false },
   { href: "/clients", label: "العملاء", icon: Users, superAdminOnly: false, officeOnly: false },
   { href: "/projects", label: "المشاريع", icon: FolderOpen, superAdminOnly: false, officeOnly: false },
+  { href: "/tasks", label: "المهام", icon: ClipboardList, superAdminOnly: false, officeOnly: false },
+  { href: "/invoices", label: "الفواتير والمدفوعات", icon: Receipt, superAdminOnly: false, officeOnly: false },
   { href: "/boq-library", label: "مكتبة المقايسة", icon: BookOpen, superAdminOnly: false, officeOnly: false },
+  { href: "/notifications", label: "الإشعارات", icon: Bell, superAdminOnly: false, officeOnly: false },
   { href: "/subscription", label: "اشتراكي", icon: BadgeCheck, superAdminOnly: false, officeOnly: true },
   { href: "/plans", label: "خطط الاشتراك", icon: CreditCard, superAdminOnly: true, officeOnly: false },
   { href: "/offices", label: "المكاتب", icon: Building2, superAdminOnly: true, officeOnly: false },
@@ -115,6 +119,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="h-16 flex items-center justify-between px-4 sm:px-6 bg-card border-b border-border z-10 sticky top-0">
           <MobileSidebar />
           <div className="flex items-center gap-4 mr-auto">
+            <NotificationBell />
             <div className="text-sm font-medium">{(user as { name?: string } | null)?.name}</div>
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
               {(user as { name?: string } | null)?.name?.[0]?.toUpperCase() || "U"}

@@ -1,22 +1,70 @@
+import { useEffect, useState } from "react";
 import { useGetDashboardStats, useGetRecentProjects, useGetPendingApprovals, useGetRecentOffices } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FolderOpen, Clock, CheckCircle2, AlertCircle, CreditCard, PlayCircle, Building2, Activity } from "lucide-react";
+import { Users, FolderOpen, Clock, CheckCircle2, AlertCircle, CreditCard, PlayCircle, Building2, Activity, ListChecks, ClipboardList, CalendarDays, Receipt, WalletCards, CircleDollarSign } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/hooks/use-toast";
+import { parseApiResponse } from "@/lib/api-response";
+import { fetchTaskStats, type TaskStats } from "@/lib/tasks";
+import { fetchFinanceStats, formatAmount, type FinanceStats } from "@/lib/invoices";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: recentProjects, isLoading: projectsLoading } = useGetRecentProjects();
   const { data: pendingApprovals, isLoading: pendingLoading } = useGetPendingApprovals();
   const { data: recentOffices, isLoading: officesLoading } = useGetRecentOffices();
+  const [showChecklist, setShowChecklist] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
+  const [taskStats, setTaskStats] = useState<TaskStats | null>(null);
+  const [financeStats, setFinanceStats] = useState<FinanceStats | null>(null);
+
+  useEffect(() => {
+    fetch("/api/onboarding/status", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    })
+      .then((res) => parseApiResponse<{ onboardingCompleted: boolean }>(res))
+      .then((data) => setShowChecklist(!data.onboardingCompleted))
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    fetchTaskStats().then(setTaskStats).catch(() => setTaskStats(null));
+    fetchFinanceStats().then(setFinanceStats).catch(() => setFinanceStats(null));
+  }, []);
+
+  const completeOnboarding = async () => {
+    setIsCompleting(true);
+    try {
+      const res = await fetch("/api/onboarding/complete", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+      });
+      await parseApiResponse(res);
+      setShowChecklist(false);
+      toast({ title: "تم إنهاء قائمة البداية" });
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "تعذر إنهاء قائمة البداية", variant: "destructive" });
+    } finally {
+      setIsCompleting(false);
+    }
+  };
 
   const statCards = [
     { title: "إجمالي العملاء", value: stats?.totalClients, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
     { title: "إجمالي المشاريع", value: stats?.totalProjects, icon: FolderOpen, color: "text-indigo-500", bg: "bg-indigo-500/10" },
     { title: "المشاريع الجارية", value: stats?.activeProjects, icon: PlayCircle, color: "text-amber-500", bg: "bg-amber-500/10" },
     { title: "في انتظار موافقة العميل", value: stats?.projectsWaitingApproval, icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
+    { title: "مهامي", value: taskStats?.myTasks, icon: ClipboardList, color: "text-sky-500", bg: "bg-sky-500/10" },
+    { title: "المهام المتأخرة", value: taskStats?.overdueTasks, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
+    { title: "مهام هذا الأسبوع", value: taskStats?.thisWeekTasks, icon: CalendarDays, color: "text-lime-600", bg: "bg-lime-500/10" },
+    { title: "إجمالي الفواتير", value: financeStats ? formatAmount(financeStats.totalInvoices) : undefined, icon: Receipt, color: "text-cyan-600", bg: "bg-cyan-500/10" },
+    { title: "إجمالي المدفوع", value: financeStats ? formatAmount(financeStats.totalPaid) : undefined, icon: WalletCards, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+    { title: "إجمالي المستحق", value: financeStats ? formatAmount(financeStats.totalDue) : undefined, icon: CircleDollarSign, color: "text-amber-600", bg: "bg-amber-500/10" },
+    { title: "الفواتير المتأخرة", value: financeStats?.overdueInvoices, icon: AlertCircle, color: "text-red-600", bg: "bg-red-500/10" },
     { title: "المشاريع المكتملة", value: stats?.completedProjects, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
     { title: "خطط الاشتراك", value: stats?.totalPlans, icon: CreditCard, color: "text-purple-500", bg: "bg-purple-500/10" },
     { title: "الخطط النشطة", value: stats?.activePlans, icon: Activity, color: "text-rose-500", bg: "bg-rose-500/10" },
@@ -31,6 +79,30 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-foreground">لوحة التحكم</h1>
           <p className="text-muted-foreground mt-1">نظرة عامة على أداء نظام إدارة المشاريع</p>
         </div>
+
+        {showChecklist && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
+              <CardTitle className="flex items-center gap-2">
+                <ListChecks className="w-5 h-5 text-primary" />
+                قائمة البداية
+              </CardTitle>
+              <Button onClick={completeOnboarding} disabled={isCompleting} variant="outline">
+                إنهاء قائمة البداية
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+                {["أضف أول عميل", "أنشئ أول مشروع", "ارفع ملفات المشروع", "أضف بنود المقايسة", "ادعُ العميل للبوابة"].map((item) => (
+                  <div key={item} className="rounded-lg border bg-background p-3 text-sm flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {statCards.map((stat, index) => {

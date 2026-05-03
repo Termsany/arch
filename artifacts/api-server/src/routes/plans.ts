@@ -3,6 +3,8 @@ import { db } from "@workspace/db";
 import { subscriptionPlansTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { authMiddleware } from "../lib/auth";
+import { validateBody } from "../lib/http";
+import { planSchema } from "../lib/validation";
 
 const router = Router();
 
@@ -59,7 +61,7 @@ router.get("/plans", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/plans", authMiddleware, async (req, res) => {
+router.post("/plans", authMiddleware, validateBody(planSchema), async (req, res) => {
   try {
     const [plan] = await db.insert(subscriptionPlansTable).values(planFromBody(req.body as Record<string, unknown>)).returning();
     res.status(201).json(mapPlan(plan!));
@@ -84,7 +86,7 @@ router.get("/plans/:id", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/plans/:id", authMiddleware, async (req, res) => {
+router.put("/plans/:id", authMiddleware, validateBody(planSchema), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     const [updated] = await db

@@ -26,9 +26,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { parseApiResponse } from "@/lib/api-response";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2, Upload, Download, Star, Eye, EyeOff, Paperclip, BookOpen } from "lucide-react";
+import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2, Upload, Download, Star, Eye, EyeOff, Paperclip, BookOpen, FileText, ClipboardList, Receipt } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { fetchProjectTasks, updateTaskStatus, type ProjectTask, type TaskStatus } from "@/lib/tasks";
+import { fetchProjectInvoices, formatAmount, STATUS_LABELS as INVOICE_STATUS_LABELS, type Invoice } from "@/lib/invoices";
 
 interface StageApproval {
   id: number;
@@ -47,6 +50,8 @@ interface ProjectFile {
   fileName: string;
   originalName: string;
   filePath: string;
+  fileUrl?: string | null;
+  storageProvider?: string | null;
   fileType: string;
   fileSize: number;
   versionNumber: number;
@@ -73,6 +78,28 @@ interface BoqCategory {
   id: number;
   name: string;
 }
+
+interface ProjectDocument {
+  id: number;
+  projectId: number;
+  documentType: "quotation" | "project_report" | "boq" | "invoice";
+  title: string;
+  createdAt: string;
+}
+
+const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  todo: "مطلوب",
+  in_progress: "جاري العمل",
+  review: "مراجعة",
+  done: "مكتملة",
+};
+
+const TASK_PRIORITY_LABELS: Record<ProjectTask["priority"], string> = {
+  low: "منخفضة",
+  medium: "متوسطة",
+  high: "عالية",
+  urgent: "عاجلة",
+};
 
 function StageStatusIcon({ status }: { status: string }) {
   if (status === "مكتملة" || status === "تمت الموافقة") return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
@@ -113,7 +140,7 @@ export default function ProjectDetails() {
     if (!projectId) return;
     const token = localStorage.getItem("token") || "";
     fetch(`/api/projects/${projectId}/approvals`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : [])
+      .then(r => r.ok ? parseApiResponse<StageApproval[]>(r) : [])
       .then(setApprovals)
       .catch(() => {});
   }, [projectId, stages]);
@@ -144,8 +171,8 @@ export default function ProjectDetails() {
     const token = localStorage.getItem("token") || "";
     const h = { Authorization: `Bearer ${token}` };
     Promise.all([
-      fetch("/api/boq/library", { headers: h }).then(r => r.ok ? r.json() : []),
-      fetch("/api/boq/categories", { headers: h }).then(r => r.ok ? r.json() : [])
+      fetch("/api/boq/library", { headers: h }).then(r => r.ok ? parseApiResponse<BoqLibraryItem[]>(r) : []),
+      fetch("/api/boq/categories", { headers: h }).then(r => r.ok ? parseApiResponse<BoqCategory[]>(r) : [])
     ]).then(([lib, cats]) => { setBoqLibrary(lib); setBoqCategories(cats); }).catch(() => {});
   }, []);
 
@@ -182,8 +209,23 @@ export default function ProjectDetails() {
   const handleEstimateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const { unitCostBeforeProfit, totalCostBeforeProfit, totalPrice } = boqCalc();
+    const estimatePayload = {
+      phaseName: estimateForm.phaseName,
+      itemName: estimateForm.itemName,
+      quantity: estimateForm.quantity,
+      unit: estimateForm.unit,
+      notes: estimateForm.notes,
+      categoryId: estimateForm.categoryId ? parseInt(estimateForm.categoryId) : undefined,
+      materialUnitCost: estimateForm.materialUnitCost,
+      laborUnitCost: estimateForm.laborUnitCost,
+      wastePercentage: estimateForm.wastePercentage,
+      profitMargin: estimateForm.profitMargin,
+      unitPrice: unitCostBeforeProfit,
+      totalCostBeforeProfit,
+      totalPrice,
+    } as any;
     createEstimateMutation.mutate(
-      { id: projectId, data: { phaseName: estimateForm.phaseName, itemName: estimateForm.itemName, quantity: estimateForm.quantity, unit: estimateForm.unit, notes: estimateForm.notes, categoryId: estimateForm.categoryId ? parseInt(estimateForm.categoryId) : undefined, materialUnitCost: estimateForm.materialUnitCost, laborUnitCost: estimateForm.laborUnitCost, wastePercentage: estimateForm.wastePercentage, profitMargin: estimateForm.profitMargin, unitPrice: unitCostBeforeProfit, totalPrice } },
+      { id: projectId, data: estimatePayload },
       { onSuccess: () => { queryClient.invalidateQueries({ queryKey: getGetProjectEstimatesQueryKey(projectId) }); toast({ title: "تم إضافة البند للمقايسة" }); setIsEstimateOpen(false); setEstimateForm(defaultEstimateForm); } }
     );
   };
@@ -199,7 +241,7 @@ export default function ProjectDetails() {
   const loadFiles = () => {
     const token = localStorage.getItem("token") || "";
     fetch(`/api/projects/${projectId}/files`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : [])
+      .then(r => r.ok ? parseApiResponse<ProjectFile[]>(r) : [])
       .then((data: ProjectFile[]) => setFiles(data))
       .catch(() => setFiles([]))
       .finally(() => setFilesLoading(false));
@@ -219,7 +261,7 @@ export default function ProjectDetails() {
     formData.append("visibility", uploadForm.visibility);
     try {
       const res = await fetch(`/api/projects/${projectId}/files`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
-      if (!res.ok) { const err = await res.json().catch(() => ({})) as { error?: string }; throw new Error(err.error || "فشل الرفع"); }
+      await parseApiResponse(res);
       toast({ title: "تم رفع الملف بنجاح" });
       setIsUploadOpen(false);
       setSelectedFile(null);
@@ -237,7 +279,7 @@ export default function ProjectDetails() {
     const token = localStorage.getItem("token") || "";
     try {
       const res = await fetch(`/api/files/${fileId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error("فشل الحذف");
+      await parseApiResponse(res);
       toast({ title: "تم حذف الملف" });
       loadFiles();
     } catch { toast({ title: "فشل حذف الملف", variant: "destructive" }); }
@@ -247,7 +289,7 @@ export default function ProjectDetails() {
     const token = localStorage.getItem("token") || "";
     try {
       const res = await fetch(`/api/files/${fileId}/mark-approved`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error();
+      await parseApiResponse(res);
       toast({ title: "تم تعيين النسخة المعتمدة" });
       loadFiles();
     } catch { toast({ title: "حدث خطأ", variant: "destructive" }); }
@@ -257,7 +299,7 @@ export default function ProjectDetails() {
     const token = localStorage.getItem("token") || "";
     try {
       const res = await fetch(`/api/files/${fileId}/toggle-client-visible`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error();
+      await parseApiResponse(res);
       loadFiles();
     } catch { toast({ title: "حدث خطأ", variant: "destructive" }); }
   };
@@ -268,6 +310,92 @@ export default function ProjectDetails() {
     acc[key].push(f);
     return acc;
   }, {});
+
+  const [documents, setDocuments] = useState<ProjectDocument[]>([]);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [generatingDocument, setGeneratingDocument] = useState<"quotation" | "project_report" | null>(null);
+
+  const loadDocuments = () => {
+    const token = localStorage.getItem("token") || "";
+    setDocumentsLoading(true);
+    fetch(`/api/projects/${projectId}/documents`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? parseApiResponse<ProjectDocument[]>(r) : [])
+      .then(setDocuments)
+      .catch(() => setDocuments([]))
+      .finally(() => setDocumentsLoading(false));
+  };
+
+  useEffect(() => { if (projectId) loadDocuments(); }, [projectId]);
+
+  const handleCreateDocument = async (type: "quotation" | "project_report") => {
+    const token = localStorage.getItem("token") || "";
+    setGeneratingDocument(type);
+    const path = type === "quotation" ? "quotation" : "project-report";
+    try {
+      const res = await fetch(`/api/projects/${projectId}/documents/${path}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const doc = await parseApiResponse<ProjectDocument>(res);
+      toast({ title: type === "quotation" ? "تم إنشاء عرض سعر" : "تم إنشاء تقرير حالة المشروع" });
+      loadDocuments();
+      window.open(`/documents/${doc.id}`, "_blank");
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "تعذر إنشاء مستند", variant: "destructive" });
+    } finally {
+      setGeneratingDocument(null);
+    }
+  };
+
+  const handleDeleteDocument = async (documentId: number) => {
+    const token = localStorage.getItem("token") || "";
+    try {
+      const res = await fetch(`/api/documents/${documentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await parseApiResponse(res);
+      toast({ title: "تم حذف المستند" });
+      loadDocuments();
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "تعذر حذف المستند", variant: "destructive" });
+    }
+  };
+
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
+  const [projectTasksLoading, setProjectTasksLoading] = useState(true);
+  const [projectInvoices, setProjectInvoices] = useState<Invoice[]>([]);
+  const [projectInvoicesLoading, setProjectInvoicesLoading] = useState(true);
+
+  const loadProjectTasks = () => {
+    setProjectTasksLoading(true);
+    fetchProjectTasks(projectId)
+      .then(setProjectTasks)
+      .catch(() => setProjectTasks([]))
+      .finally(() => setProjectTasksLoading(false));
+  };
+
+  useEffect(() => { if (projectId) loadProjectTasks(); }, [projectId]);
+
+  const loadProjectInvoices = () => {
+    setProjectInvoicesLoading(true);
+    fetchProjectInvoices(projectId)
+      .then(setProjectInvoices)
+      .catch(() => setProjectInvoices([]))
+      .finally(() => setProjectInvoicesLoading(false));
+  };
+
+  useEffect(() => { if (projectId) loadProjectInvoices(); }, [projectId]);
+
+  const handleProjectTaskStatus = async (task: ProjectTask, status: TaskStatus) => {
+    try {
+      await updateTaskStatus(task.id, status);
+      toast({ title: "تم تحديث حالة المهمة" });
+      loadProjectTasks();
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "تعذر تحديث حالة المهمة", variant: "destructive" });
+    }
+  };
 
   if (projectLoading) return <div className="p-8"><Skeleton className="h-64 w-full" /></div>;
   if (!project) return <div className="p-8 text-center text-muted-foreground">المشروع غير موجود</div>;
@@ -330,10 +458,13 @@ export default function ProjectDetails() {
 
         {/* Tabs */}
         <Tabs defaultValue="stages">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-7 h-auto">
             <TabsTrigger value="stages">مراحل المشروع</TabsTrigger>
             <TabsTrigger value="files">الملفات ({files.length})</TabsTrigger>
             <TabsTrigger value="boq">المقايسة</TabsTrigger>
+            <TabsTrigger value="tasks">مهام المشروع</TabsTrigger>
+            <TabsTrigger value="invoices">الفواتير</TabsTrigger>
+            <TabsTrigger value="documents">المستندات</TabsTrigger>
             <TabsTrigger value="feedback">الملاحظات</TabsTrigger>
           </TabsList>
 
@@ -474,7 +605,7 @@ export default function ProjectDetails() {
                       </div>
                       <div className="flex items-center gap-0.5 shrink-0">
                         <Button variant="ghost" size="icon" className="h-7 w-7" title="تحميل"
-                          onClick={() => window.open(`/api${file.filePath}`, "_blank")}>
+                          onClick={() => window.open(file.fileUrl || `/api${file.filePath}`, "_blank")}>
                           <Download className="w-3.5 h-3.5" />
                         </Button>
                         <Button variant="ghost" size="icon" className="h-7 w-7"
@@ -698,6 +829,196 @@ export default function ProjectDetails() {
             )}
           </TabsContent>
 
+          {/* ── Tasks Tab ── */}
+          <TabsContent value="tasks" className="mt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold">مهام المشروع</h2>
+                <p className="text-sm text-muted-foreground">المهام المرتبطة بهذا المشروع ومراحله</p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <a href={`/tasks?project_id=${projectId}`}>كل المهام</a>
+              </Button>
+            </div>
+            {projectTasksLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : projectTasks.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>لا توجد مهام مرتبطة بهذا المشروع</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">عنوان المهمة</TableHead>
+                      <TableHead className="text-right">المرحلة</TableHead>
+                      <TableHead className="text-right">المسؤول</TableHead>
+                      <TableHead className="text-right">الأولوية</TableHead>
+                      <TableHead className="text-right">تاريخ التسليم</TableHead>
+                      <TableHead className="text-right">الحالة</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projectTasks.map((task) => (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">{task.title}</TableCell>
+                        <TableCell>{task.stageName || "-"}</TableCell>
+                        <TableCell>{task.assignedToName || "-"}</TableCell>
+                        <TableCell><Badge variant="outline">{TASK_PRIORITY_LABELS[task.priority]}</Badge></TableCell>
+                        <TableCell dir="ltr">{task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-GB") : "-"}</TableCell>
+                        <TableCell>
+                          <Select value={task.status} onValueChange={(value) => handleProjectTaskStatus(task, value as TaskStatus)}>
+                            <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
+                            <SelectContent dir="rtl">
+                              {Object.entries(TASK_STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Invoices Tab ── */}
+          <TabsContent value="invoices" className="mt-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold">الفواتير والمدفوعات</h2>
+                <p className="text-sm text-muted-foreground">فواتير المشروع والمدفوعات اليدوية المسجلة عليها</p>
+              </div>
+              <Button size="sm" className="gap-2" asChild>
+                <a href={`/projects/${projectId}/invoices/new`}><Receipt className="w-4 h-4" />فاتورة جديدة</a>
+              </Button>
+            </div>
+            {projectInvoicesLoading ? (
+              <Skeleton className="h-40 w-full" />
+            ) : projectInvoices.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <Receipt className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>لا توجد فواتير مرتبطة بهذا المشروع</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-right">رقم الفاتورة</TableHead>
+                      <TableHead className="text-right">الحالة</TableHead>
+                      <TableHead className="text-right">إجمالي الفاتورة</TableHead>
+                      <TableHead className="text-right">المدفوع</TableHead>
+                      <TableHead className="text-right">المتبقي</TableHead>
+                      <TableHead className="text-right">تاريخ الاستحقاق</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {projectInvoices.map((invoice) => (
+                      <TableRow key={invoice.id}>
+                        <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
+                        <TableCell><Badge variant="outline">{INVOICE_STATUS_LABELS[invoice.status]}</Badge></TableCell>
+                        <TableCell dir="ltr">{formatAmount(invoice.totalAmount)}</TableCell>
+                        <TableCell dir="ltr">{formatAmount(invoice.paidAmount)}</TableCell>
+                        <TableCell dir="ltr">{formatAmount(invoice.remainingAmount)}</TableCell>
+                        <TableCell dir="ltr">{invoice.dueDate || "-"}</TableCell>
+                        <TableCell><Button variant="outline" size="sm" asChild><a href={`/invoices/${invoice.id}`}>عرض</a></Button></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ── Documents Tab ── */}
+          <TabsContent value="documents" className="mt-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="font-semibold">المستندات والتقارير</h2>
+                <p className="text-sm text-muted-foreground">إنشاء مستندات عربية قابلة للطباعة من بيانات المشروع والمقايسة.</p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => handleCreateDocument("quotation")}
+                  disabled={generatingDocument !== null}
+                >
+                  <FileText className="w-4 h-4" />
+                  {generatingDocument === "quotation" ? "جاري الإنشاء..." : "إنشاء عرض سعر"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => handleCreateDocument("project_report")}
+                  disabled={generatingDocument !== null}
+                >
+                  <FileText className="w-4 h-4" />
+                  {generatingDocument === "project_report" ? "جاري الإنشاء..." : "إنشاء تقرير حالة المشروع"}
+                </Button>
+              </div>
+            </div>
+
+            {documentsLoading ? (
+              <div className="space-y-3">{[1,2].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
+            ) : documents.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p>لا توجد مستندات بعد</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {documents.map((doc) => (
+                  <Card key={doc.id} className="border-border/50">
+                    <CardContent className="p-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <FileText className="w-5 h-5 text-primary shrink-0" />
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{doc.title}</p>
+                            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                              <Badge variant="outline" className="font-normal">
+                                {doc.documentType === "quotation" ? "عرض سعر" : doc.documentType === "project_report" ? "تقرير حالة المشروع" : doc.documentType === "invoice" ? "فاتورة" : "مقايسة"}
+                              </Badge>
+                              <span>تاريخ الإنشاء: {doc.createdAt ? new Date(doc.createdAt).toLocaleDateString("ar-SA") : ""}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={`/documents/${doc.id}`} target="_blank" rel="noreferrer">فتح</a>
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent dir="rtl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>هل تريد حذف هذا المستند؟</AlertDialogTitle>
+                                <AlertDialogDescription>سيتم حذف نسخة المستند المحفوظة فقط ولن تتأثر بيانات المشروع.</AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter className="gap-2 sm:gap-0">
+                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteDocument(doc.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
           {/* ── Feedback Tab ── */}
           <TabsContent value="feedback" className="mt-4 space-y-4">
             <div className="flex justify-between items-center">
@@ -767,7 +1088,7 @@ export default function ProjectDetails() {
                           <p className="text-sm leading-relaxed">{fb.feedbackText}</p>
                         </div>
                         <span className="text-xs text-muted-foreground shrink-0" dir="ltr">
-                          {new Date(fb.createdAt).toLocaleDateString("ar-SA")}
+                          {fb.createdAt ? new Date(fb.createdAt).toLocaleDateString("ar-SA") : ""}
                         </span>
                       </div>
                     </CardContent>

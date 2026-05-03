@@ -19,7 +19,9 @@ export default function Pricing() {
             <Link href="/login">
               <Button variant="ghost">تسجيل الدخول</Button>
             </Link>
-            <Button>ابدأ الآن</Button>
+            <Link href="/start">
+              <Button>ابدأ الآن</Button>
+            </Link>
           </div>
         </div>
       </header>
@@ -99,9 +101,11 @@ export default function Pricing() {
                 </CardContent>
                 
                 <CardFooter className="pb-8">
-                  <Button className="w-full h-12 text-lg" variant={plan.isRecommended ? "default" : "outline"}>
-                    ابدأ الآن
-                  </Button>
+                  <Link href="/start" className="w-full">
+                    <Button className="w-full h-12 text-lg" variant={plan.isRecommended ? "default" : "outline"}>
+                      ابدأ الآن
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
             ))}
