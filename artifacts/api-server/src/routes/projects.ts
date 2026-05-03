@@ -107,7 +107,7 @@ router.post("/projects", authMiddleware, async (req, res) => {
 router.get("/projects/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const projects = await db
       .select(PROJECT_COLS)
       .from(projectsTable)
@@ -133,7 +133,7 @@ router.get("/projects/:id", authMiddleware, async (req, res) => {
 router.put("/projects/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
 
     const existing = await db.select({ officeId: projectsTable.officeId }).from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
     if (!existing[0]) {
@@ -177,7 +177,7 @@ router.put("/projects/:id", authMiddleware, async (req, res) => {
 router.delete("/projects/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
 
     const existing = await db.select({ officeId: projectsTable.officeId }).from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
     if (!existing[0]) {

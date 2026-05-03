@@ -53,7 +53,7 @@ router.post("/clients", authMiddleware, async (req, res) => {
 router.get("/clients/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const clients = await db.select().from(clientsTable).where(eq(clientsTable.id, id)).limit(1);
     if (!clients[0]) {
       res.status(404).json({ error: "العميل غير موجود" });
@@ -73,7 +73,7 @@ router.get("/clients/:id", authMiddleware, async (req, res) => {
 router.put("/clients/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
 
     const existing = await db.select().from(clientsTable).where(eq(clientsTable.id, id)).limit(1);
     if (!existing[0]) {
@@ -103,7 +103,7 @@ router.put("/clients/:id", authMiddleware, async (req, res) => {
 router.delete("/clients/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
 
     const existing = await db.select().from(clientsTable).where(eq(clientsTable.id, id)).limit(1);
     if (!existing[0]) {
@@ -126,7 +126,7 @@ router.delete("/clients/:id", authMiddleware, async (req, res) => {
 router.get("/clients/:id/portal-user", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const clientId = parseInt(req.params["id"]!);
+    const clientId = Number(req.params["id"]);
 
     const client = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId)).limit(1);
     if (!client[0]) {
@@ -154,7 +154,7 @@ router.get("/clients/:id/portal-user", authMiddleware, async (req, res) => {
 router.post("/clients/:id/portal-user", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const clientId = parseInt(req.params["id"]!);
+    const clientId = Number(req.params["id"]);
     const { email, password } = req.body as { email: string; password: string };
 
     if (!email || !password) {

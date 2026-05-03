@@ -71,7 +71,7 @@ router.post("/plans", authMiddleware, async (req, res) => {
 
 router.get("/plans/:id", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const plans = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, id)).limit(1);
     if (!plans[0]) {
       res.status(404).json({ error: "الخطة غير موجودة" });
@@ -86,7 +86,7 @@ router.get("/plans/:id", authMiddleware, async (req, res) => {
 
 router.put("/plans/:id", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const [updated] = await db
       .update(subscriptionPlansTable)
       .set({ ...planFromBody(req.body as Record<string, unknown>), updatedAt: new Date() })
@@ -105,7 +105,7 @@ router.put("/plans/:id", authMiddleware, async (req, res) => {
 
 router.delete("/plans/:id", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     await db.delete(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, id));
     res.json({ success: true, message: "تم حذف الخطة بنجاح" });
   } catch (err) {
@@ -116,7 +116,7 @@ router.delete("/plans/:id", authMiddleware, async (req, res) => {
 
 router.patch("/plans/:id/toggle-active", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const current = await db.select().from(subscriptionPlansTable).where(eq(subscriptionPlansTable.id, id)).limit(1);
     if (!current[0]) {
       res.status(404).json({ error: "الخطة غير موجودة" });
@@ -136,7 +136,7 @@ router.patch("/plans/:id/toggle-active", authMiddleware, async (req, res) => {
 
 router.patch("/plans/:id/recommended", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     // Unset all recommended first
     await db.update(subscriptionPlansTable).set({ isRecommended: false, updatedAt: new Date() });
     const [updated] = await db

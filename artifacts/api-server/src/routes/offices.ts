@@ -60,7 +60,7 @@ router.post("/offices", authMiddleware, async (req, res) => {
 
 router.get("/offices/:id", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const offices = await db
       .select({
         id: officesTable.id,
@@ -94,7 +94,7 @@ router.get("/offices/:id", authMiddleware, async (req, res) => {
 
 router.put("/offices/:id", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     const body = req.body as Record<string, unknown>;
     const [updated] = await db
       .update(officesTable)
@@ -125,7 +125,7 @@ router.put("/offices/:id", authMiddleware, async (req, res) => {
 
 router.delete("/offices/:id", authMiddleware, async (req, res) => {
   try {
-    const id = parseInt(req.params["id"]!);
+    const id = Number(req.params["id"]);
     await db.delete(officesTable).where(eq(officesTable.id, id));
     res.json({ success: true, message: "تم حذف المكتب بنجاح" });
   } catch (err) {

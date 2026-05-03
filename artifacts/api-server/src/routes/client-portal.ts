@@ -51,7 +51,7 @@ router.get("/client-portal/projects", clientPortalMiddleware, async (req, res) =
 router.get("/client-portal/projects/:id", clientPortalMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = Number(req.params["id"]);
     if (!user.clientId || !(await assertClientOwnsProject(projectId, user.clientId))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول لهذا المشروع" });
       return;
@@ -83,7 +83,7 @@ router.get("/client-portal/projects/:id", clientPortalMiddleware, async (req, re
 router.get("/client-portal/projects/:id/stages", clientPortalMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = Number(req.params["id"]);
     if (!user.clientId || !(await assertClientOwnsProject(projectId, user.clientId))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
       return;
@@ -121,7 +121,7 @@ router.get("/client-portal/projects/:id/stages", clientPortalMiddleware, async (
 router.get("/client-portal/projects/:id/feedback", clientPortalMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = Number(req.params["id"]);
     if (!user.clientId || !(await assertClientOwnsProject(projectId, user.clientId))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
       return;
@@ -150,7 +150,7 @@ router.get("/client-portal/projects/:id/feedback", clientPortalMiddleware, async
 router.post("/client-portal/stages/:stageId/approve", clientPortalMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const stageId = parseInt(req.params["stageId"]!);
+    const stageId = Number(req.params["stageId"]);
     const { comment } = req.body as { comment?: string };
 
     if (!user.clientId) {
@@ -212,7 +212,7 @@ router.post("/client-portal/stages/:stageId/approve", clientPortalMiddleware, as
 router.post("/client-portal/stages/:stageId/request-revision", clientPortalMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const stageId = parseInt(req.params["stageId"]!);
+    const stageId = Number(req.params["stageId"]);
     const { comment } = req.body as { comment: string };
 
     if (!user.clientId) {

@@ -6,6 +6,8 @@
 - JWT authentication with role separation (super_admin, office_admin, team_member, client)
 - Multi-office data isolation
 - Project management with stage timelines
+- Subscription plans with office limits and feature gates
+- BOQ / costing system with advanced estimates and library items
 - Client portal for approvals and revision requests
 - Project file management with versioning and client visibility controls
 
@@ -32,6 +34,20 @@
 ### Admin — client portal accounts
 - `GET /api/clients/:id/portal-user`
 - `POST /api/clients/:id/portal-user`
+
+### Admin — offices and subscriptions
+- `GET /api/offices`
+- `POST /api/offices`
+- `GET /api/offices/:id`
+- `PUT /api/offices/:id`
+- `DELETE /api/offices/:id`
+- `GET /api/plans`
+- `GET /api/plans/active`
+- `POST /api/plans`
+- `PUT /api/plans/:id`
+- `DELETE /api/plans/:id`
+- `PATCH /api/plans/:id/toggle-active`
+- `PATCH /api/plans/:id/recommended`
 
 ### Admin — project files
 - `GET /api/projects/:id/files`
@@ -63,6 +79,9 @@
 - `/clients` — client list with portal-account management
 - `/projects` — project list
 - `/projects/:id` — project detail (stages, files, feedback, estimates)
+- `/plans` — subscription plan management
+- `/offices` — office and subscription management
+- `/subscription` — current subscription overview
 - `/client/login` — client portal login
 - `/client/projects` — client's project list
 - `/client/projects/:id` — client project detail (stages, files, feedback)
@@ -99,3 +118,4 @@
 - Admin tokens (`localStorage.token`) are blocked from client-portal routes.
 - Client tokens (`localStorage.clientToken`) are blocked from admin routes.
 - `super_admin` sees all offices; `office_admin` and `team_member` see only their office.
+- Subscription enforcement uses office plan limits for users, projects, clients, storage, and gated features.

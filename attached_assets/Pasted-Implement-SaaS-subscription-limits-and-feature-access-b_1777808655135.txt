@@ -1,0 +1,116 @@
+Implement SaaS subscription limits and feature access based on each office's plan.
+
+Goal:
+Subscription plans should control what each office can use.
+
+Current:
+- subscription_plans table exists.
+- offices table has plan_id and subscription_status.
+
+Tasks:
+
+1. Backend Services
+Create plan service:
+- getOfficePlan(office_id)
+- checkOfficeLimit(office_id, limitType)
+- checkFeatureAccess(office_id, featureName)
+
+Limits:
+- max_users
+- max_projects
+- max_clients
+- storage_limit_mb
+
+Features:
+- has_client_portal
+- has_whatsapp_notifications
+- has_pdf_reports
+- has_team_roles
+- has_advanced_estimates
+
+2. Enforce Limits
+Apply checks:
+- Creating team member checks max_users.
+- Creating project checks max_projects.
+- Creating client checks max_clients.
+- Uploading file checks storage_limit_mb.
+- Accessing client portal requires has_client_portal.
+- Creating printable/PDF reports requires has_pdf_reports.
+- Advanced BOQ requires has_advanced_estimates.
+- Team management requires has_team_roles.
+
+3. Subscription Status
+Create middleware:
+- requireActiveSubscription
+
+If office subscription_status is:
+- trial: allow
+- active: allow
+- expired: block main office features
+- cancelled: block main office features
+
+Blocked users should see a clear message:
+"الاشتراك منتهي أو غير نشط"
+
+super_admin should not be blocked.
+
+4. Backend API
+Add:
+- GET /api/subscription/me
+- GET /api/offices/:id/subscription
+- PUT /api/offices/:id/subscription
+
+5. Frontend
+Create page:
+- MySubscription
+
+Route:
+- /subscription
+
+Sidebar:
+- الاشتراك
+
+Show:
+- current plan
+- subscription status
+- start date
+- end date
+- usage:
+  - users used / max
+  - clients used / max
+  - projects used / max
+  - storage used / max
+- available features
+
+Arabic labels:
+- الاشتراك
+- الخطة الحالية
+- حالة الاشتراك
+- بداية الاشتراك
+- نهاية الاشتراك
+- الاستخدام
+- المستخدمين
+- العملاء
+- المشاريع
+- مساحة التخزين
+- هذه الميزة غير متاحة في خطتك الحالية
+- لقد وصلت إلى الحد الأقصى في خطتك
+- يرجى ترقية الخطة
+
+6. Super Admin
+In Offices page:
+- allow changing plan
+- allow changing subscription status
+- allow updating subscription_start
+- allow updating subscription_end
+
+7. Testing
+Test:
+- Creating project is blocked at max_projects.
+- Creating client is blocked at max_clients.
+- Feature gate blocks advanced BOQ if plan does not include it.
+- Expired office cannot use main app.
+- super_admin can still manage everything.
+
+No payment gateway yet.
+Manual subscription management only.

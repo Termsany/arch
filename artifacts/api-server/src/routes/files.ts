@@ -82,7 +82,7 @@ router.get("/uploads/:filename", (req, res) => {
 router.get("/projects/:id/files", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = Number(req.params["id"]);
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
       return;
@@ -119,7 +119,7 @@ router.get("/projects/:id/files", authMiddleware, async (req, res) => {
 router.get("/stages/:stageId/files", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const stageId = parseInt(req.params["stageId"]!);
+    const stageId = Number(req.params["stageId"]);
     const stage = await db.select().from(projectStagesTable).where(eq(projectStagesTable.id, stageId)).limit(1);
     if (!stage[0]) { res.status(404).json({ error: "المرحلة غير موجودة" }); return; }
     if (!(await checkProjectAccess(stage[0].projectId, user))) {
@@ -137,7 +137,7 @@ router.get("/stages/:stageId/files", authMiddleware, async (req, res) => {
 router.post("/projects/:id/files", authMiddleware, upload.single("file"), async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = Number(req.params["id"]);
     if (!(await checkProjectAccess(projectId, user))) {
       if (req.file) fs.unlinkSync(req.file.path);
       res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
@@ -198,7 +198,7 @@ router.post("/projects/:id/files", authMiddleware, upload.single("file"), async 
 router.put("/files/:fileId", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const fileId = parseInt(req.params["fileId"]!);
+    const fileId = Number(req.params["fileId"]);
     const file = await db.select().from(projectFilesTable).where(eq(projectFilesTable.id, fileId)).limit(1);
     if (!file[0]) { res.status(404).json({ error: "الملف غير موجود" }); return; }
     if (!(await checkProjectAccess(file[0].projectId, user))) {
@@ -226,7 +226,7 @@ router.put("/files/:fileId", authMiddleware, async (req, res) => {
 router.delete("/files/:fileId", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const fileId = parseInt(req.params["fileId"]!);
+    const fileId = Number(req.params["fileId"]);
     const file = await db.select().from(projectFilesTable).where(eq(projectFilesTable.id, fileId)).limit(1);
     if (!file[0]) { res.status(404).json({ error: "الملف غير موجود" }); return; }
     if (!(await checkProjectAccess(file[0].projectId, user))) {
@@ -246,7 +246,7 @@ router.delete("/files/:fileId", authMiddleware, async (req, res) => {
 router.patch("/files/:fileId/mark-approved", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const fileId = parseInt(req.params["fileId"]!);
+    const fileId = Number(req.params["fileId"]);
     const file = await db.select().from(projectFilesTable).where(eq(projectFilesTable.id, fileId)).limit(1);
     if (!file[0]) { res.status(404).json({ error: "الملف غير موجود" }); return; }
     if (!(await checkProjectAccess(file[0].projectId, user))) {
@@ -278,7 +278,7 @@ router.patch("/files/:fileId/mark-approved", authMiddleware, async (req, res) =>
 router.patch("/files/:fileId/toggle-client-visible", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const fileId = parseInt(req.params["fileId"]!);
+    const fileId = Number(req.params["fileId"]);
     const file = await db.select().from(projectFilesTable).where(eq(projectFilesTable.id, fileId)).limit(1);
     if (!file[0]) { res.status(404).json({ error: "الملف غير موجود" }); return; }
     if (!(await checkProjectAccess(file[0].projectId, user))) {
@@ -301,7 +301,7 @@ router.patch("/files/:fileId/toggle-client-visible", authMiddleware, async (req,
 router.get("/client-portal/projects/:id/files", clientPortalMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = Number(req.params["id"]);
     if (!user.clientId) { res.status(403).json({ error: "غير مصرح" }); return; }
     const project = await db.select({ clientId: projectsTable.clientId }).from(projectsTable).where(eq(projectsTable.id, projectId)).limit(1);
     if (!project[0] || project[0].clientId !== user.clientId) {
