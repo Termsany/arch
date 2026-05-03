@@ -1,13 +1,20 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { clientsTable, projectsTable, subscriptionPlansTable, officesTable, projectStagesTable } from "@workspace/db";
-import { eq, count, sql } from "drizzle-orm";
-import { authMiddleware } from "../lib/auth";
+import { clientsTable, projectsTable, subscriptionPlansTable, officesTable } from "@workspace/db";
+import { eq, count, sql, and } from "drizzle-orm";
+import { authMiddleware, getUser } from "../lib/auth";
 
 const router = Router();
 
 router.get("/dashboard/stats", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
+    const isSuperAdmin = user.role === "super_admin";
+    const officeId = user.officeId;
+
+    const clientFilter = !isSuperAdmin && officeId ? eq(clientsTable.officeId, officeId) : undefined;
+    const projectFilter = !isSuperAdmin && officeId ? eq(projectsTable.officeId, officeId) : undefined;
+
     const [
       totalClientsRes,
       totalProjectsRes,
@@ -19,15 +26,21 @@ router.get("/dashboard/stats", authMiddleware, async (req, res) => {
       totalOfficesRes,
       activeSubscriptionsRes,
     ] = await Promise.all([
-      db.select({ count: count() }).from(clientsTable),
-      db.select({ count: count() }).from(projectsTable),
-      db.select({ count: count() }).from(projectsTable).where(eq(projectsTable.projectStatus, "جاري")),
-      db.select({ count: count() }).from(projectsTable).where(eq(projectsTable.projectStatus, "في انتظار موافقة العميل")),
-      db.select({ count: count() }).from(projectsTable).where(eq(projectsTable.projectStatus, "مكتمل")),
-      db.select({ count: count() }).from(subscriptionPlansTable),
-      db.select({ count: count() }).from(subscriptionPlansTable).where(eq(subscriptionPlansTable.isActive, true)),
-      db.select({ count: count() }).from(officesTable),
-      db.select({ count: count() }).from(officesTable).where(eq(officesTable.subscriptionStatus, "active")),
+      db.select({ count: count() }).from(clientsTable).where(clientFilter),
+      db.select({ count: count() }).from(projectsTable).where(projectFilter),
+      db.select({ count: count() }).from(projectsTable).where(
+        and(eq(projectsTable.projectStatus, "جاري"), projectFilter)
+      ),
+      db.select({ count: count() }).from(projectsTable).where(
+        and(eq(projectsTable.projectStatus, "في انتظار موافقة العميل"), projectFilter)
+      ),
+      db.select({ count: count() }).from(projectsTable).where(
+        and(eq(projectsTable.projectStatus, "مكتمل"), projectFilter)
+      ),
+      isSuperAdmin ? db.select({ count: count() }).from(subscriptionPlansTable) : Promise.resolve([{ count: 0 }]),
+      isSuperAdmin ? db.select({ count: count() }).from(subscriptionPlansTable).where(eq(subscriptionPlansTable.isActive, true)) : Promise.resolve([{ count: 0 }]),
+      isSuperAdmin ? db.select({ count: count() }).from(officesTable) : Promise.resolve([{ count: 0 }]),
+      isSuperAdmin ? db.select({ count: count() }).from(officesTable).where(eq(officesTable.subscriptionStatus, "active")) : Promise.resolve([{ count: 0 }]),
     ]);
 
     res.json({
@@ -49,6 +62,10 @@ router.get("/dashboard/stats", authMiddleware, async (req, res) => {
 
 router.get("/dashboard/recent-projects", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
+    const isSuperAdmin = user.role === "super_admin";
+    const projectFilter = !isSuperAdmin && user.officeId ? eq(projectsTable.officeId, user.officeId) : undefined;
+
     const projects = await db
       .select({
         id: projectsTable.id,
@@ -67,6 +84,7 @@ router.get("/dashboard/recent-projects", authMiddleware, async (req, res) => {
       })
       .from(projectsTable)
       .leftJoin(clientsTable, eq(projectsTable.clientId, clientsTable.id))
+      .where(projectFilter)
       .orderBy(sql`${projectsTable.createdAt} DESC`)
       .limit(5);
     res.json(projects);
@@ -78,6 +96,11 @@ router.get("/dashboard/recent-projects", authMiddleware, async (req, res) => {
 
 router.get("/dashboard/recent-offices", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
+    if (user.role !== "super_admin") {
+      res.json([]);
+      return;
+    }
     const offices = await db
       .select()
       .from(officesTable)
@@ -92,6 +115,10 @@ router.get("/dashboard/recent-offices", authMiddleware, async (req, res) => {
 
 router.get("/dashboard/pending-approvals", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
+    const isSuperAdmin = user.role === "super_admin";
+    const projectFilter = !isSuperAdmin && user.officeId ? eq(projectsTable.officeId, user.officeId) : undefined;
+
     const projects = await db
       .select({
         id: projectsTable.id,
@@ -110,7 +137,7 @@ router.get("/dashboard/pending-approvals", authMiddleware, async (req, res) => {
       })
       .from(projectsTable)
       .leftJoin(clientsTable, eq(projectsTable.clientId, clientsTable.id))
-      .where(eq(projectsTable.projectStatus, "في انتظار موافقة العميل"))
+      .where(and(eq(projectsTable.projectStatus, "في انتظار موافقة العميل"), projectFilter))
       .orderBy(sql`${projectsTable.updatedAt} DESC`);
     res.json(projects);
   } catch (err) {

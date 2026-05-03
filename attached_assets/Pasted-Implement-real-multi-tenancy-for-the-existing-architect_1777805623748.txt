@@ -1,0 +1,101 @@
+Implement real multi-tenancy for the existing architecture SaaS MVP.
+
+Goal:
+Each office should only see and manage its own clients, projects, stages, estimates, feedback, files later, and team members.
+
+Current database includes:
+- users
+- offices
+- subscription_plans
+- clients
+- projects
+- project_stages
+- client_feedback
+- project_estimates
+
+Tasks:
+
+1. Database
+Update database/schema.sql and seed.sql.
+
+Add office_id where needed:
+- users.office_id nullable
+- clients.office_id required
+- projects.office_id required
+
+Access to these tables should be controlled through project_id:
+- project_stages
+- client_feedback
+- project_estimates
+
+Rules:
+- super_admin can see all offices and all data.
+- office_admin can only see data for their own office.
+- team_member can only see data for their own office.
+- clients and projects must always be linked to office_id.
+
+2. Auth
+Update JWT payload to include:
+- user_id
+- name
+- role
+- office_id
+
+Update auth middleware so req.user includes:
+- id
+- name
+- role
+- office_id
+
+3. Backend Data Filtering
+Update all client and project endpoints:
+- GET /api/clients returns only current office clients unless super_admin.
+- GET /api/projects returns only current office projects unless super_admin.
+- GET /api/projects/:id checks office access.
+- PUT and DELETE also check office access.
+
+Update stages, feedback, and estimates routes:
+- Validate that the related project belongs to the current user's office.
+- Return 403 if the user tries to access another office's data.
+
+4. Frontend
+After login, store:
+- token
+- user role
+- office_id
+- name
+
+Hide these sidebar items from non-super_admin:
+- خطط الاشتراك
+- المكاتب
+
+5. Dashboard
+Update dashboard stats:
+- super_admin sees global stats.
+- office_admin/team_member sees only their office stats.
+
+6. Seed Data
+Create:
+- super_admin:
+  email: admin@example.com
+  password: admin123
+
+- office 1 admin:
+  email: office1admin@example.com
+  password: admin123
+
+- office 2 admin:
+  email: office2admin@example.com
+  password: admin123
+
+Add clients and projects for each office.
+
+7. Testing
+Test:
+- super_admin sees all data.
+- office1admin sees only office 1 data.
+- office2admin sees only office 2 data.
+- office1admin cannot access office 2 project by URL.
+- Dashboard stats are filtered correctly.
+
+Keep the implementation simple and secure.

@@ -5,18 +5,21 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
-const navItems = [
-  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard },
-  { href: "/clients", label: "العملاء", icon: Users },
-  { href: "/projects", label: "المشاريع", icon: FolderOpen },
-  { href: "/plans", label: "خطط الاشتراك", icon: CreditCard },
-  { href: "/offices", label: "المكاتب", icon: Building2 },
-  { href: "/pricing", label: "صفحة الأسعار", icon: Tag },
+const ALL_NAV_ITEMS = [
+  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false },
+  { href: "/clients", label: "العملاء", icon: Users, superAdminOnly: false },
+  { href: "/projects", label: "المشاريع", icon: FolderOpen, superAdminOnly: false },
+  { href: "/plans", label: "خطط الاشتراك", icon: CreditCard, superAdminOnly: true },
+  { href: "/offices", label: "المكاتب", icon: Building2, superAdminOnly: true },
+  { href: "/pricing", label: "صفحة الأسعار", icon: Tag, superAdminOnly: false },
 ];
 
 function NavLinks({ onClick }: { onClick?: () => void }) {
   const [location] = useLocation();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const isSuperAdmin = (user as { role?: string } | null)?.role === "super_admin";
+
+  const navItems = ALL_NAV_ITEMS.filter(item => !item.superAdminOnly || isSuperAdmin);
 
   return (
     <nav className="space-y-1 mt-8 flex flex-col w-full px-4 h-full">
@@ -53,11 +56,17 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
 }
 
 export function Sidebar() {
+  const { user } = useAuth();
+  const roleBadge = (user as { role?: string } | null)?.role === "super_admin" ? "مدير النظام" : "مدير مكتب";
+
   return (
     <aside className="hidden md:flex flex-col w-64 bg-card border-l h-screen sticky top-0">
       <div className="h-16 flex items-center px-6 border-b border-border font-bold text-2xl text-primary gap-2">
-        <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground">A</div>
+        <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground text-sm font-bold">A</div>
         ArchSaaS
+      </div>
+      <div className="px-4 pt-3">
+        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">{roleBadge}</span>
       </div>
       <NavLinks />
     </aside>
@@ -76,7 +85,7 @@ export function MobileSidebar() {
       </SheetTrigger>
       <SheetContent side="right" className="p-0 w-64 flex flex-col h-full">
         <div className="h-16 flex items-center px-6 border-b border-border font-bold text-2xl text-primary gap-2">
-          <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground">A</div>
+          <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground text-sm font-bold">A</div>
           ArchSaaS
         </div>
         <NavLinks onClick={() => setOpen(false)} />
@@ -100,9 +109,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         <header className="h-16 flex items-center justify-between px-4 sm:px-6 bg-card border-b border-border z-10 sticky top-0">
           <MobileSidebar />
           <div className="flex items-center gap-4 mr-auto">
-            <div className="text-sm font-medium">{user?.name}</div>
+            <div className="text-sm font-medium">{(user as { name?: string } | null)?.name}</div>
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold">
-              {user?.name?.[0]?.toUpperCase() || "U"}
+              {(user as { name?: string } | null)?.name?.[0]?.toUpperCase() || "U"}
             </div>
           </div>
         </header>
