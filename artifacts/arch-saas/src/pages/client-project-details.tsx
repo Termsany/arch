@@ -5,11 +5,13 @@ import {
   getClientProject,
   getClientProjectStages,
   getClientProjectFeedback,
+  getClientProjectFiles,
   approveStage,
   requestRevision,
   type ClientProject,
   type ClientStage,
   type ClientFeedbackItem,
+  type ClientFile,
 } from "@/lib/client-api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +23,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "@/hooks/use-toast";
 import {
   CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare,
-  ArrowRight, LogOut, ThumbsUp, RotateCcw
+  ArrowRight, LogOut, ThumbsUp, RotateCcw, Download, Star, Paperclip
 } from "lucide-react";
 
 function StageStatusIcon({ status }: { status: string }) {
@@ -52,6 +54,7 @@ export default function ClientProjectDetails() {
   const [project, setProject] = useState<ClientProject | null>(null);
   const [stages, setStages] = useState<ClientStage[]>([]);
   const [feedbacks, setFeedbacks] = useState<ClientFeedbackItem[]>([]);
+  const [files, setFiles] = useState<ClientFile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [actionDialog, setActionDialog] = useState<{ open: boolean; type: "approve" | "revision"; stage: ClientStage | null }>({
@@ -62,20 +65,28 @@ export default function ClientProjectDetails() {
 
   const loadData = async () => {
     try {
-      const [proj, stgs, fbs] = await Promise.all([
+      const [proj, stgs, fbs, fls] = await Promise.all([
         getClientProject(projectId),
         getClientProjectStages(projectId),
         getClientProjectFeedback(projectId),
+        getClientProjectFiles(projectId),
       ]);
       setProject(proj);
       setStages(stgs);
       setFeedbacks(fbs);
+      setFiles(fls);
     } catch {
       toast({ title: "تعذّر تحميل بيانات المشروع", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
+
+  function formatBytes(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   useEffect(() => {
     loadData();
@@ -180,6 +191,9 @@ export default function ClientProjectDetails() {
                 <TabsTrigger value="stages" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-11 px-5">
                   مراحل المشروع
                 </TabsTrigger>
+                <TabsTrigger value="files" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-11 px-5">
+                  ملفات المشروع
+                </TabsTrigger>
                 <TabsTrigger value="feedback" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-11 px-5">
                   سجل الملاحظات
                 </TabsTrigger>
@@ -240,6 +254,53 @@ export default function ClientProjectDetails() {
                         <div className="text-center py-10 text-muted-foreground">لا توجد مراحل مسجلة بعد</div>
                       )}
                     </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="files" className="m-0">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>ملفات المشروع</CardTitle>
+                    <CardDescription>الملفات المشتركة معك من مكتب التصميم</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {files.length === 0 ? (
+                      <div className="text-center py-12 text-muted-foreground border border-dashed rounded-lg">
+                        <Paperclip className="w-7 h-7 mx-auto mb-2 opacity-40" />
+                        <p>لا توجد ملفات مشتركة بعد</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {files.map((file) => (
+                          <div key={file.id} className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${file.isApprovedVersion ? "border-emerald-300 bg-emerald-50/50" : "border-border/60 bg-muted/20"}`}>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium truncate max-w-[220px]">{file.originalName}</span>
+                                <Badge variant="outline" className="text-xs shrink-0">نسخة {file.versionNumber}</Badge>
+                                {file.isApprovedVersion && (
+                                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs shrink-0 gap-1">
+                                    <Star className="w-3 h-3" /> النسخة المعتمدة
+                                  </Badge>
+                                )}
+                                <Badge variant="outline" className="text-xs shrink-0 text-muted-foreground">{file.fileCategory}</Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5 flex gap-3">
+                                <span dir="ltr">{formatBytes(file.fileSize)}</span>
+                                {file.stageName && <span>• {file.stageName}</span>}
+                                {file.notes && <span>• {file.notes}</span>}
+                              </div>
+                            </div>
+                            <a href={file.filePath} download={file.originalName} target="_blank" rel="noreferrer">
+                              <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                                <Download className="w-3.5 h-3.5" />
+                                تحميل
+                              </Button>
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>

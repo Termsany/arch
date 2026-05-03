@@ -93,3 +93,24 @@ export async function requestRevision(stageId: number, comment: string): Promise
     body: JSON.stringify({ comment }),
   });
 }
+
+export interface ClientFile {
+  id: number;
+  projectId: number;
+  stageId?: number | null;
+  stageName?: string | null;
+  fileName: string;
+  originalName: string;
+  filePath: string;
+  fileType: string;
+  fileSize: number;
+  versionNumber: number;
+  fileCategory: string;
+  notes?: string | null;
+  isApprovedVersion: boolean;
+  createdAt?: string;
+}
+
+export async function getClientProjectFiles(projectId: number): Promise<ClientFile[]> {
+  return clientFetch<ClientFile[]>(`/client-portal/projects/${projectId}/files`);
+}

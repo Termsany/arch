@@ -7,3 +7,4 @@ export * from "./projectEstimates";
 export * from "./subscriptionPlans";
 export * from "./offices";
 export * from "./stageApprovals";
+export * from "./projectFiles";

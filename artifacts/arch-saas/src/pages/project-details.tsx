@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout";
 import { 
   useGetProject, 
@@ -27,11 +27,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2, Upload, Download, Star, Eye, EyeOff, Paperclip } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const STAGE_STATUSES = ["لم تبدأ", "جاري العمل", "في انتظار موافقة العميل", "تمت الموافقة", "يحتاج تعديل", "مكتملة"];
 const FEEDBACK_TYPES = ["موافقة", "تعديل", "ملاحظة عامة"];
+const FILE_CATEGORIES = ["صور المعاينة", "Plan 2D", "Mood Board", "3D Design", "Shop Drawing", "BOQ", "Final Delivery", "Other"];
 
 interface StageApproval {
   id: number;
@@ -40,6 +41,24 @@ interface StageApproval {
   approvalStatus: string;
   comment: string | null;
   approvedAt: string | null;
+}
+
+interface ProjectFile {
+  id: number;
+  projectId: number;
+  stageId: number | null;
+  stageName?: string | null;
+  fileName: string;
+  originalName: string;
+  filePath: string;
+  fileType: string;
+  fileSize: number;
+  versionNumber: number;
+  visibility: "internal" | "client_visible";
+  fileCategory: string;
+  notes: string | null;
+  isApprovedVersion: boolean;
+  createdAt: string;
 }
 
 function StageStatusIcon({ status }: { status: string }) {
@@ -58,6 +77,12 @@ function ApprovalBadge({ status }: { status: string }) {
   if (status === "pending")
     return <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 text-xs font-normal">ينتظر رد العميل</Badge>;
   return null;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function ProjectDetails() {
@@ -143,6 +168,107 @@ export default function ProjectDetails() {
     );
   };
 
+  // ─── Files state ────────────────────────────────────────────────
+  const [files, setFiles] = useState<ProjectFile[]>([]);
+  const [filesLoading, setFilesLoading] = useState(true);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadForm, setUploadForm] = useState({
+    stageId: "none",
+    fileCategory: "Other",
+    notes: "",
+    visibility: "internal",
+  });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const loadFiles = () => {
+    const token = localStorage.getItem("token") || "";
+    fetch(`/api/projects/${projectId}/files`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then((data: ProjectFile[]) => setFiles(data))
+      .catch(() => setFiles([]))
+      .finally(() => setFilesLoading(false));
+  };
+
+  useEffect(() => { if (projectId) loadFiles(); }, [projectId]);
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) { toast({ title: "يرجى اختيار ملف", variant: "destructive" }); return; }
+    setIsUploading(true);
+    const token = localStorage.getItem("token") || "";
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+    if (uploadForm.stageId !== "none") formData.append("stageId", uploadForm.stageId);
+    formData.append("fileCategory", uploadForm.fileCategory);
+    formData.append("notes", uploadForm.notes);
+    formData.append("visibility", uploadForm.visibility);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error || "فشل الرفع");
+      }
+      toast({ title: "تم رفع الملف بنجاح" });
+      setIsUploadOpen(false);
+      setSelectedFile(null);
+      setUploadForm({ stageId: "none", fileCategory: "Other", notes: "", visibility: "internal" });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      loadFiles();
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "حدث خطأ", variant: "destructive" });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeleteFile = async (fileId: number) => {
+    const token = localStorage.getItem("token") || "";
+    try {
+      const res = await fetch(`/api/files/${fileId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("فشل الحذف");
+      toast({ title: "تم حذف الملف" });
+      loadFiles();
+    } catch {
+      toast({ title: "فشل حذف الملف", variant: "destructive" });
+    }
+  };
+
+  const handleMarkApproved = async (fileId: number) => {
+    const token = localStorage.getItem("token") || "";
+    try {
+      const res = await fetch(`/api/files/${fileId}/mark-approved`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error();
+      toast({ title: "تم تعيين النسخة المعتمدة" });
+      loadFiles();
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    }
+  };
+
+  const handleToggleVisibility = async (fileId: number) => {
+    const token = localStorage.getItem("token") || "";
+    try {
+      const res = await fetch(`/api/files/${fileId}/toggle-client-visible`, { method: "PATCH", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error();
+      loadFiles();
+    } catch {
+      toast({ title: "حدث خطأ", variant: "destructive" });
+    }
+  };
+
+  const groupedFiles = files.reduce<Record<string, ProjectFile[]>>((acc, f) => {
+    const key = f.fileCategory;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(f);
+    return acc;
+  }, {});
+
   if (projectLoading) return <div className="p-8"><Skeleton className="h-64 w-full" /></div>;
   if (!project) return <div className="p-8 text-center text-muted-foreground">المشروع غير موجود</div>;
 
@@ -190,6 +316,9 @@ export default function ProjectDetails() {
           <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 mb-6">
             <TabsTrigger value="stages" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-12 px-6">
               مراحل المشروع
+            </TabsTrigger>
+            <TabsTrigger value="files" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-12 px-6">
+              ملفات المشروع
             </TabsTrigger>
             <TabsTrigger value="feedback" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-12 px-6">
               ملاحظات العميل
@@ -248,6 +377,168 @@ export default function ProjectDetails() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ─── Files Tab ─── */}
+          <TabsContent value="files" className="m-0">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div>
+                  <CardTitle>ملفات المشروع</CardTitle>
+                  <CardDescription>رفع وإدارة ملفات المشروع مع التحكم في الإصدارات والظهور للعميل</CardDescription>
+                </div>
+                <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-2">
+                      <Upload className="w-4 h-4" />
+                      رفع ملف
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent dir="rtl" className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>رفع ملف جديد</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={handleUploadSubmit} className="space-y-4 mt-2">
+                      <div className="space-y-2">
+                        <Label>الملف *</Label>
+                        <Input
+                          ref={fileInputRef}
+                          type="file"
+                          required
+                          accept=".jpg,.jpeg,.png,.webp,.pdf,.dwg,.dxf,.zip,.rar,.docx,.xlsx"
+                          onChange={e => setSelectedFile(e.target.files?.[0] ?? null)}
+                          dir="ltr"
+                        />
+                        {selectedFile && (
+                          <p className="text-xs text-muted-foreground">{selectedFile.name} — {formatBytes(selectedFile.size)}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>المرحلة المرتبطة</Label>
+                        <Select value={uploadForm.stageId} onValueChange={v => setUploadForm(f => ({ ...f, stageId: v }))}>
+                          <SelectTrigger><SelectValue placeholder="بدون مرحلة" /></SelectTrigger>
+                          <SelectContent dir="rtl">
+                            <SelectItem value="none">بدون مرحلة</SelectItem>
+                            {stages?.map(s => <SelectItem key={s.id} value={s.id.toString()}>{s.stageName}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>التصنيف</Label>
+                        <Select value={uploadForm.fileCategory} onValueChange={v => setUploadForm(f => ({ ...f, fileCategory: v }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent dir="rtl">
+                            {FILE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>الظهور</Label>
+                        <Select value={uploadForm.visibility} onValueChange={v => setUploadForm(f => ({ ...f, visibility: v }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent dir="rtl">
+                            <SelectItem value="internal">داخلي فقط</SelectItem>
+                            <SelectItem value="client_visible">ظاهر للعميل</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>الملاحظات</Label>
+                        <Textarea rows={2} value={uploadForm.notes} onChange={e => setUploadForm(f => ({ ...f, notes: e.target.value }))} />
+                      </div>
+                      <Button type="submit" className="w-full gap-2" disabled={isUploading}>
+                        {isUploading ? "جارٍ الرفع..." : <><Upload className="w-4 h-4" /> رفع الملف</>}
+                      </Button>
+                    </form>
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {filesLoading ? (
+                  <div className="space-y-3"><Skeleton className="h-16 w-full" /><Skeleton className="h-16 w-full" /></div>
+                ) : files.length === 0 ? (
+                  <div className="text-center py-14 text-muted-foreground border border-dashed rounded-lg">
+                    <Paperclip className="w-8 h-8 mx-auto mb-3 opacity-40" />
+                    <p>لا توجد ملفات مرفوعة بعد</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6 mt-2">
+                    {Object.entries(groupedFiles).map(([category, catFiles]) => (
+                      <div key={category}>
+                        <h3 className="font-semibold text-sm text-muted-foreground mb-2 flex items-center gap-2">
+                          <Paperclip className="w-4 h-4" /> {category}
+                        </h3>
+                        <div className="space-y-2">
+                          {catFiles.map(file => (
+                            <div key={file.id} className={`flex items-center gap-3 p-3 rounded-lg border text-sm ${file.isApprovedVersion ? "border-emerald-300 bg-emerald-50/50" : "border-border/60 bg-muted/20"}`}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium truncate max-w-[220px]">{file.originalName}</span>
+                                  <Badge variant="outline" className="text-xs shrink-0">نسخة {file.versionNumber}</Badge>
+                                  {file.isApprovedVersion && (
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs shrink-0">النسخة المعتمدة</Badge>
+                                  )}
+                                  {file.visibility === "client_visible" ? (
+                                    <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 text-xs shrink-0">ظاهر للعميل</Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-gray-500 text-xs shrink-0">داخلي</Badge>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5 flex gap-3">
+                                  <span dir="ltr">{formatBytes(file.fileSize)}</span>
+                                  {file.stageName && <span>• {file.stageName}</span>}
+                                  {file.notes && <span>• {file.notes}</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  variant="ghost" size="icon" className="h-7 w-7"
+                                  title={file.visibility === "client_visible" ? "إخفاء عن العميل" : "إظهار للعميل"}
+                                  onClick={() => handleToggleVisibility(file.id)}
+                                >
+                                  {file.visibility === "client_visible" ? <Eye className="w-3.5 h-3.5 text-blue-500" /> : <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                                </Button>
+                                {!file.isApprovedVersion && (
+                                  <Button
+                                    variant="ghost" size="icon" className="h-7 w-7"
+                                    title="تعيين كنسخة معتمدة"
+                                    onClick={() => handleMarkApproved(file.id)}
+                                  >
+                                    <Star className="w-3.5 h-3.5 text-amber-500" />
+                                  </Button>
+                                )}
+                                <a href={file.filePath} download={file.originalName} target="_blank" rel="noreferrer">
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="تحميل">
+                                    <Download className="w-3.5 h-3.5" />
+                                  </Button>
+                                </a>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="حذف">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent dir="rtl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>حذف الملف</AlertDialogTitle>
+                                      <AlertDialogDescription>هل أنت متأكد من حذف "{file.originalName}"؟</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="gap-2 sm:gap-0">
+                                      <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteFile(file.id)} className="bg-destructive">حذف</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
