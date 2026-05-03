@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { comparePassword, signToken, authMiddleware, getUser } from "../lib/auth";
+import { comparePassword, signToken, authMiddleware, clientPortalMiddleware, getUser } from "../lib/auth";
 
 const router = Router();
 
@@ -30,6 +30,7 @@ router.post("/auth/login", async (req, res) => {
       name: user.name,
       role: user.role,
       officeId: user.officeId ?? null,
+      clientId: user.clientId ?? null,
     });
     res.json({
       token,
@@ -39,6 +40,7 @@ router.post("/auth/login", async (req, res) => {
         email: user.email,
         role: user.role,
         officeId: user.officeId ?? null,
+        clientId: user.clientId ?? null,
         createdAt: user.createdAt,
       },
     });
@@ -49,6 +51,23 @@ router.post("/auth/login", async (req, res) => {
 });
 
 router.get("/auth/me", authMiddleware, async (req, res) => {
+  try {
+    const authUser = getUser(req);
+    const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
+    if (!users[0]) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+    const { passwordHash, ...safe } = users[0];
+    void passwordHash;
+    res.json(safe);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+router.get("/auth/client-me", clientPortalMiddleware, async (req, res) => {
   try {
     const authUser = getUser(req);
     const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);

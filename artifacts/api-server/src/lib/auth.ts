@@ -10,6 +10,7 @@ export type AuthUser = {
   name: string;
   role: string;
   officeId: number | null;
+  clientId: number | null;
 };
 
 export function hashPassword(password: string): Promise<string> {
@@ -46,6 +47,30 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   const payload = verifyToken(token);
   if (!payload) {
     res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+  if (payload.role === "client") {
+    res.status(403).json({ error: "غير مصرح لك بالوصول لهذه الصفحة" });
+    return;
+  }
+  (req as Request & { user: AuthUser }).user = payload;
+  next();
+}
+
+export function clientPortalMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  const token = authHeader.slice(7);
+  const payload = verifyToken(token);
+  if (!payload) {
+    res.status(401).json({ error: "Invalid or expired token" });
+    return;
+  }
+  if (payload.role !== "client") {
+    res.status(403).json({ error: "هذه الصفحة مخصصة للعملاء فقط" });
     return;
   }
   (req as Request & { user: AuthUser }).user = payload;

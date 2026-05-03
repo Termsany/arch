@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
+import { ClientAuthProvider, useClientAuth } from "@/hooks/use-client-auth";
 import { Loader2 } from "lucide-react";
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
@@ -13,6 +14,9 @@ import ProjectDetails from "./pages/project-details";
 import Plans from "./pages/plans";
 import Offices from "./pages/offices";
 import NotFound from "@/pages/not-found";
+import ClientLogin from "./pages/client-login";
+import ClientPortalDashboard from "./pages/client-portal-dashboard";
+import ClientProjectDetails from "./pages/client-project-details";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,9 +46,27 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 
+function ClientProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { clientUser } = useClientAuth();
+
+  if (!clientUser) {
+    window.location.href = "/client/login";
+    return null;
+  }
+
+  return <Component />;
+}
+
 function Router() {
   return (
     <Switch>
+      <Route path="/client/login" component={ClientLogin} />
+      <Route path="/client/projects/:id">
+        {() => <ClientProtectedRoute component={ClientProjectDetails} />}
+      </Route>
+      <Route path="/client/projects">
+        {() => <ClientProtectedRoute component={ClientPortalDashboard} />}
+      </Route>
       <Route path="/login" component={Login} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/">
@@ -74,10 +96,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <AuthProvider>
-          <Router />
-          <Toaster />
-        </AuthProvider>
+        <ClientAuthProvider>
+          <AuthProvider>
+            <Router />
+            <Toaster />
+          </AuthProvider>
+        </ClientAuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

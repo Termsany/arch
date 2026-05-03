@@ -15,9 +15,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Search } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, KeyRound, CheckCircle2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+
+interface PortalUserInfo {
+  id: number;
+  email: string;
+  name: string;
+  role: string;
+}
 
 export default function Clients() {
   const queryClient = useQueryClient();
@@ -33,6 +41,12 @@ export default function Clients() {
     address: "",
     notes: ""
   });
+
+  const [portalDialog, setPortalDialog] = useState<{ open: boolean; clientId: number | null; clientName: string; existingUser: PortalUserInfo | null; isLoading: boolean }>({
+    open: false, clientId: null, clientName: "", existingUser: null, isLoading: false,
+  });
+  const [portalForm, setPortalForm] = useState({ email: "", password: "" });
+  const [isPortalSubmitting, setIsPortalSubmitting] = useState(false);
 
   const createMutation = useCreateClient({
     mutation: {
@@ -91,6 +105,44 @@ export default function Clients() {
       updateMutation.mutate({ id: editingClient.id, data: formData });
     } else {
       createMutation.mutate({ data: formData });
+    }
+  };
+
+  const openPortalDialog = async (client: any) => {
+    setPortalDialog({ open: true, clientId: client.id, clientName: client.name, existingUser: null, isLoading: true });
+    setPortalForm({ email: "", password: "" });
+    try {
+      const token = localStorage.getItem("token") || "";
+      const res = await fetch(`/api/clients/${client.id}/portal-user`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setPortalDialog(d => ({ ...d, existingUser: data, isLoading: false }));
+      if (data?.email) setPortalForm(f => ({ ...f, email: data.email }));
+    } catch {
+      setPortalDialog(d => ({ ...d, isLoading: false }));
+    }
+  };
+
+  const handlePortalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!portalDialog.clientId) return;
+    setIsPortalSubmitting(true);
+    try {
+      const token = localStorage.getItem("token") || "";
+      const res = await fetch(`/api/clients/${portalDialog.clientId}/portal-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(portalForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "حدث خطأ");
+      toast({ title: data.isNew ? "تم إنشاء حساب البوابة بنجاح" : "تم تحديث بيانات الحساب بنجاح" });
+      setPortalDialog(d => ({ ...d, open: false }));
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "حدث خطأ", variant: "destructive" });
+    } finally {
+      setIsPortalSubmitting(false);
     }
   };
 
@@ -202,7 +254,7 @@ export default function Clients() {
                   <TableHead className="text-right">رقم الهاتف</TableHead>
                   <TableHead className="text-right">البريد الإلكتروني</TableHead>
                   <TableHead className="text-right">العنوان</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
+                  <TableHead className="w-[140px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -230,7 +282,15 @@ export default function Clients() {
                       <TableCell><span dir="ltr">{client.email || "-"}</span></TableCell>
                       <TableCell className="max-w-[200px] truncate" title={client.address || ""}>{client.address || "-"}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 justify-end">
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="إدارة حساب البوابة"
+                            onClick={() => openPortalDialog(client)}
+                          >
+                            <KeyRound className="w-4 h-4 text-orange-500" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(client)}>
                             <Edit2 className="w-4 h-4 text-primary" />
                           </Button>
@@ -268,6 +328,79 @@ export default function Clients() {
           </div>
         </div>
       </div>
+
+      <Dialog open={portalDialog.open} onOpenChange={(open) => setPortalDialog(d => ({ ...d, open }))}>
+        <DialogContent dir="rtl" className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5 text-orange-500" />
+              حساب بوابة العميل
+            </DialogTitle>
+          </DialogHeader>
+          {portalDialog.isLoading ? (
+            <div className="space-y-3 py-4">
+              <Skeleton className="h-4 w-full" /><Skeleton className="h-4 w-3/4" />
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              <div className="bg-muted/50 rounded-lg px-4 py-2 text-sm">
+                <span className="text-muted-foreground">العميل: </span>
+                <span className="font-medium">{portalDialog.clientName}</span>
+              </div>
+
+              {portalDialog.existingUser && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <div>
+                    <span className="font-medium">حساب موجود: </span>
+                    <span dir="ltr">{portalDialog.existingUser.email}</span>
+                  </div>
+                  <Badge variant="outline" className="mr-auto text-xs">نشط</Badge>
+                </div>
+              )}
+
+              <form onSubmit={handlePortalSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="portal-email">
+                    {portalDialog.existingUser ? "البريد الإلكتروني الجديد" : "البريد الإلكتروني"}
+                  </Label>
+                  <Input
+                    id="portal-email"
+                    type="email"
+                    dir="ltr"
+                    required
+                    value={portalForm.email}
+                    onChange={(e) => setPortalForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="portal-password">
+                    {portalDialog.existingUser ? "كلمة المرور الجديدة" : "كلمة المرور"}
+                  </Label>
+                  <Input
+                    id="portal-password"
+                    type="password"
+                    dir="ltr"
+                    required
+                    value={portalForm.password}
+                    onChange={(e) => setPortalForm(f => ({ ...f, password: e.target.value }))}
+                    placeholder="6 أحرف على الأقل"
+                    minLength={6}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isPortalSubmitting}>
+                  {portalDialog.existingUser ? "تحديث بيانات الحساب" : "إنشاء حساب البوابة"}
+                </Button>
+              </form>
+
+              <p className="text-xs text-muted-foreground text-center">
+                رابط بوابة العملاء: <span dir="ltr" className="font-mono">/client/login</span>
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

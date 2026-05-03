@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { projectStagesTable, projectsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { projectStagesTable, projectsTable, stageApprovalsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { authMiddleware, getUser } from "../lib/auth";
 
 const router = Router();
@@ -35,6 +35,27 @@ router.get("/projects/:id/stages", authMiddleware, async (req, res) => {
   }
 });
 
+router.get("/projects/:id/approvals", authMiddleware, async (req, res) => {
+  try {
+    const user = getUser(req);
+    const projectId = parseInt(req.params["id"]!);
+
+    if (!(await checkProjectAccess(projectId, user))) {
+      res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
+      return;
+    }
+
+    const approvals = await db
+      .select()
+      .from(stageApprovalsTable)
+      .where(eq(stageApprovalsTable.projectId, projectId));
+    res.json(approvals);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 router.put("/stages/:stageId", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
@@ -59,6 +80,38 @@ router.put("/stages/:stageId", authMiddleware, async (req, res) => {
       .set({ status, notes, clientFeedback, updatedAt: new Date() })
       .where(eq(projectStagesTable.id, stageId))
       .returning();
+
+    if (status === "في انتظار موافقة العميل") {
+      const project = await db
+        .select({ clientId: projectsTable.clientId })
+        .from(projectsTable)
+        .where(eq(projectsTable.id, stage[0].projectId))
+        .limit(1);
+
+      const clientId = project[0]?.clientId;
+      if (clientId) {
+        const existing = await db
+          .select({ id: stageApprovalsTable.id })
+          .from(stageApprovalsTable)
+          .where(and(eq(stageApprovalsTable.stageId, stageId), eq(stageApprovalsTable.clientId, clientId)))
+          .limit(1);
+
+        if (!existing[0]) {
+          await db.insert(stageApprovalsTable).values({
+            projectId: stage[0].projectId,
+            stageId,
+            clientId,
+            approvalStatus: "pending",
+          });
+        } else {
+          await db
+            .update(stageApprovalsTable)
+            .set({ approvalStatus: "pending", approvedAt: null, comment: null, updatedAt: new Date() })
+            .where(eq(stageApprovalsTable.id, existing[0].id));
+        }
+      }
+    }
+
     res.json(updated);
   } catch (err) {
     req.log.error(err);

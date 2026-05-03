@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AppLayout } from "@/components/layout";
 import { 
   useGetProject, 
@@ -8,7 +8,6 @@ import {
   useCreateProjectFeedback,
   useGetProjectEstimates,
   useCreateProjectEstimate,
-  useUpdateEstimate,
   useDeleteEstimate,
   getGetProjectStagesQueryKey,
   getGetProjectFeedbackQueryKey,
@@ -28,11 +27,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2, Edit2 } from "lucide-react";
+import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 const STAGE_STATUSES = ["لم تبدأ", "جاري العمل", "في انتظار موافقة العميل", "تمت الموافقة", "يحتاج تعديل", "مكتملة"];
 const FEEDBACK_TYPES = ["موافقة", "تعديل", "ملاحظة عامة"];
+
+interface StageApproval {
+  id: number;
+  stageId: number;
+  clientId: number;
+  approvalStatus: string;
+  comment: string | null;
+  approvedAt: string | null;
+}
 
 function StageStatusIcon({ status }: { status: string }) {
   if (status === "مكتملة" || status === "تمت الموافقة") return <CheckCircle2 className="w-5 h-5 text-emerald-500" />;
@@ -40,6 +48,16 @@ function StageStatusIcon({ status }: { status: string }) {
   if (status === "في انتظار موافقة العميل") return <Clock className="w-5 h-5 text-orange-500" />;
   if (status === "يحتاج تعديل") return <AlertCircle className="w-5 h-5 text-rose-500" />;
   return <div className="w-5 h-5 rounded-full border-2 border-muted" />;
+}
+
+function ApprovalBadge({ status }: { status: string }) {
+  if (status === "approved")
+    return <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-xs font-normal">تمت الموافقة</Badge>;
+  if (status === "revision_requested")
+    return <Badge variant="destructive" className="text-xs font-normal">طلب تعديل</Badge>;
+  if (status === "pending")
+    return <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50 text-xs font-normal">ينتظر رد العميل</Badge>;
+  return null;
 }
 
 export default function ProjectDetails() {
@@ -52,7 +70,20 @@ export default function ProjectDetails() {
   const { data: feedbacks, isLoading: feedbackLoading } = useGetProjectFeedback(projectId);
   const { data: estimatesData, isLoading: estimatesLoading } = useGetProjectEstimates(projectId);
 
-  // Stage Update
+  const [approvals, setApprovals] = useState<StageApproval[]>([]);
+  useEffect(() => {
+    if (!projectId) return;
+    const token = localStorage.getItem("token") || "";
+    fetch(`/api/projects/${projectId}/approvals`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(setApprovals)
+      .catch(() => {});
+  }, [projectId, stages]);
+
+  const approvalByStage = (stageId: number) => approvals.find(a => a.stageId === stageId);
+
   const updateStageMutation = useUpdateStage();
   const handleUpdateStageStatus = (stageId: number, status: string) => {
     updateStageMutation.mutate(
@@ -66,7 +97,6 @@ export default function ProjectDetails() {
     );
   };
 
-  // Feedback
   const [feedbackForm, setFeedbackForm] = useState({ stageId: "all", feedbackText: "", feedbackType: "ملاحظة عامة" });
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const createFeedbackMutation = useCreateProjectFeedback();
@@ -93,7 +123,6 @@ export default function ProjectDetails() {
     );
   };
 
-  // Estimate
   const [estimateForm, setEstimateForm] = useState({ phaseName: "", itemName: "", quantity: 1, unit: "", unitPrice: 0, notes: "" });
   const [isEstimateOpen, setIsEstimateOpen] = useState(false);
   const createEstimateMutation = useCreateProjectEstimate();
@@ -181,35 +210,44 @@ export default function ProjectDetails() {
                   <div className="space-y-4"><Skeleton className="h-12 w-full"/><Skeleton className="h-12 w-full"/></div>
                 ) : (
                   <div className="relative border-r-2 border-border pl-0 pr-6 mr-4 space-y-8">
-                    {stages?.map((stage) => (
-                      <div key={stage.id} className="relative">
-                        <div className="absolute -right-[35px] bg-background">
-                          <StageStatusIcon status={stage.status} />
-                        </div>
-                        <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                              <h3 className="font-bold text-lg">{stage.stageName}</h3>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <Select 
-                                value={stage.status}
-                                onValueChange={(val) => handleUpdateStageStatus(stage.id, val)}
-                              >
-                                <SelectTrigger className="w-[180px] h-9">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent dir="rtl">
-                                  {STAGE_STATUSES.map(s => (
-                                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                    {stages?.map((stage) => {
+                      const approval = approvalByStage(stage.id);
+                      return (
+                        <div key={stage.id} className="relative">
+                          <div className="absolute -right-[35px] bg-background">
+                            <StageStatusIcon status={stage.status} />
+                          </div>
+                          <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h3 className="font-bold text-lg">{stage.stageName}</h3>
+                                  {approval && <ApprovalBadge status={approval.approvalStatus} />}
+                                </div>
+                                {approval?.comment && (
+                                  <p className="text-xs text-muted-foreground mt-1 italic">"{approval.comment}"</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Select 
+                                  value={stage.status}
+                                  onValueChange={(val) => handleUpdateStageStatus(stage.id, val)}
+                                >
+                                  <SelectTrigger className="w-[180px] h-9">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent dir="rtl">
+                                    {STAGE_STATUSES.map(s => (
+                                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

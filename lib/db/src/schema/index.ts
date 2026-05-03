@@ -6,3 +6,4 @@ export * from "./clientFeedback";
 export * from "./projectEstimates";
 export * from "./subscriptionPlans";
 export * from "./offices";
+export * from "./stageApprovals";

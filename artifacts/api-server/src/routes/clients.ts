@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { clientsTable } from "@workspace/db";
+import { clientsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { authMiddleware, getUser } from "../lib/auth";
+import { authMiddleware, getUser, hashPassword } from "../lib/auth";
 
 const router = Router();
 
@@ -117,6 +117,94 @@ router.delete("/clients/:id", authMiddleware, async (req, res) => {
 
     await db.delete(clientsTable).where(eq(clientsTable.id, id));
     res.json({ success: true, message: "تم حذف العميل بنجاح" });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+router.get("/clients/:id/portal-user", authMiddleware, async (req, res) => {
+  try {
+    const user = getUser(req);
+    const clientId = parseInt(req.params["id"]!);
+
+    const client = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId)).limit(1);
+    if (!client[0]) {
+      res.status(404).json({ error: "العميل غير موجود" });
+      return;
+    }
+    if (user.role !== "super_admin" && client[0].officeId !== user.officeId) {
+      res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
+      return;
+    }
+
+    const portalUsers = await db
+      .select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role, createdAt: usersTable.createdAt })
+      .from(usersTable)
+      .where(eq(usersTable.clientId, clientId))
+      .limit(1);
+
+    res.json(portalUsers[0] ?? null);
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
+router.post("/clients/:id/portal-user", authMiddleware, async (req, res) => {
+  try {
+    const user = getUser(req);
+    const clientId = parseInt(req.params["id"]!);
+    const { email, password } = req.body as { email: string; password: string };
+
+    if (!email || !password) {
+      res.status(400).json({ error: "البريد الإلكتروني وكلمة المرور مطلوبان" });
+      return;
+    }
+    if (password.length < 6) {
+      res.status(400).json({ error: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+      return;
+    }
+
+    const client = await db.select().from(clientsTable).where(eq(clientsTable.id, clientId)).limit(1);
+    if (!client[0]) {
+      res.status(404).json({ error: "العميل غير موجود" });
+      return;
+    }
+    if (user.role !== "super_admin" && client[0].officeId !== user.officeId) {
+      res.status(403).json({ error: "ليس لديك صلاحية الوصول" });
+      return;
+    }
+
+    const passwordHash = await hashPassword(password);
+
+    const existing = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.clientId, clientId))
+      .limit(1);
+
+    if (existing[0]) {
+      const [updated] = await db
+        .update(usersTable)
+        .set({ email, passwordHash, updatedAt: new Date() })
+        .where(eq(usersTable.id, existing[0].id))
+        .returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role });
+      res.json({ success: true, user: updated, isNew: false });
+    } else {
+      const [created] = await db
+        .insert(usersTable)
+        .values({
+          name: client[0].name,
+          email,
+          passwordHash,
+          role: "client",
+          officeId: client[0].officeId,
+          clientId,
+        })
+        .returning({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role });
+      res.status(201).json({ success: true, user: created, isNew: true });
+    }
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });

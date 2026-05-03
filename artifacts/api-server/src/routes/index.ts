@@ -9,11 +9,13 @@ import feedbackRouter from "./feedback";
 import estimatesRouter from "./estimates";
 import plansRouter from "./plans";
 import officesRouter from "./offices";
+import clientPortalRouter from "./client-portal";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(clientPortalRouter);
 router.use(dashboardRouter);
 router.use(clientsRouter);
 router.use(projectsRouter);
