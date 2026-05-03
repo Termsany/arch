@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Architecture SaaS API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: dashboard
+    description: Dashboard statistics
+  - name: clients
+    description: Client management
+  - name: projects
+    description: Project management
+  - name: stages
+    description: Project workflow stages
+  - name: feedback
+    description: Client feedback and approvals
+  - name: estimates
+    description: Project estimates / BOQ
+  - name: plans
+    description: Subscription plans
+  - name: offices
+    description: Offices management
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +42,771 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/recent-projects:
+    get:
+      operationId: getRecentProjects
+      tags: [dashboard]
+      summary: Get recent projects for dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent projects list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectWithClient"
+
+  /dashboard/recent-offices:
+    get:
+      operationId: getRecentOffices
+      tags: [dashboard]
+      summary: Get recent offices for dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent offices list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Office"
+
+  /dashboard/pending-approvals:
+    get:
+      operationId: getPendingApprovals
+      tags: [dashboard]
+      summary: Get projects waiting for client approval
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Projects waiting for approval
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectWithClient"
+
+  /clients:
+    get:
+      operationId: getClients
+      tags: [clients]
+      summary: Get all clients
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Client"
+    post:
+      operationId: createClient
+      tags: [clients]
+      summary: Create a new client
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientBody"
+      responses:
+        "201":
+          description: Client created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [clients]
+      summary: Get a client by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    put:
+      operationId: updateClient
+      tags: [clients]
+      summary: Update a client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateClientBody"
+      responses:
+        "200":
+          description: Client updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Client"
+    delete:
+      operationId: deleteClient
+      tags: [clients]
+      summary: Delete a client
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Client deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /projects:
+    get:
+      operationId: getProjects
+      tags: [projects]
+      summary: Get all projects
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectWithClient"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a new project
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a project by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectWithClient"
+    put:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectBody"
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /projects/{id}/stages:
+    get:
+      operationId: getProjectStages
+      tags: [stages]
+      summary: Get workflow stages for a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project stages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProjectStage"
+
+  /stages/{stageId}:
+    put:
+      operationId: updateStage
+      tags: [stages]
+      summary: Update a project stage status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: stageId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateStageBody"
+      responses:
+        "200":
+          description: Stage updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProjectStage"
+
+  /projects/{id}/feedback:
+    get:
+      operationId: getProjectFeedback
+      tags: [feedback]
+      summary: Get client feedback for a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project feedback list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ClientFeedback"
+    post:
+      operationId: createProjectFeedback
+      tags: [feedback]
+      summary: Add client feedback for a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFeedbackBody"
+      responses:
+        "201":
+          description: Feedback created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientFeedback"
+
+  /projects/{id}/estimates:
+    get:
+      operationId: getProjectEstimates
+      tags: [estimates]
+      summary: Get estimates (BOQ) for a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Project estimates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstimatesResponse"
+    post:
+      operationId: createProjectEstimate
+      tags: [estimates]
+      summary: Add an estimate item to a project
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEstimateBody"
+      responses:
+        "201":
+          description: Estimate item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstimateItem"
+
+  /estimates/{estimateId}:
+    put:
+      operationId: updateEstimate
+      tags: [estimates]
+      summary: Update an estimate item
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: estimateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEstimateBody"
+      responses:
+        "200":
+          description: Estimate updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EstimateItem"
+    delete:
+      operationId: deleteEstimate
+      tags: [estimates]
+      summary: Delete an estimate item
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: estimateId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Estimate deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /plans:
+    get:
+      operationId: getPlans
+      tags: [plans]
+      summary: Get all subscription plans (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionPlan"
+    post:
+      operationId: createPlan
+      tags: [plans]
+      summary: Create a new subscription plan
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanBody"
+      responses:
+        "201":
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+
+  /plans/active:
+    get:
+      operationId: getActivePlans
+      tags: [plans]
+      summary: Get active subscription plans (public pricing page)
+      responses:
+        "200":
+          description: Active plans
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionPlan"
+
+  /plans/{id}:
+    get:
+      operationId: getPlan
+      tags: [plans]
+      summary: Get a plan by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+    put:
+      operationId: updatePlan
+      tags: [plans]
+      summary: Update a subscription plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePlanBody"
+      responses:
+        "200":
+          description: Plan updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+    delete:
+      operationId: deletePlan
+      tags: [plans]
+      summary: Delete a plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /plans/{id}/toggle-active:
+    patch:
+      operationId: togglePlanActive
+      tags: [plans]
+      summary: Toggle plan active status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan status toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+
+  /plans/{id}/recommended:
+    patch:
+      operationId: setPlanRecommended
+      tags: [plans]
+      summary: Set a plan as recommended (unsets others)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plan set as recommended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionPlan"
+
+  /offices:
+    get:
+      operationId: getOffices
+      tags: [offices]
+      summary: Get all offices
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of offices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OfficeWithPlan"
+    post:
+      operationId: createOffice
+      tags: [offices]
+      summary: Create a new office
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOfficeBody"
+      responses:
+        "201":
+          description: Office created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Office"
+
+  /offices/{id}:
+    get:
+      operationId: getOffice
+      tags: [offices]
+      summary: Get an office by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Office details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OfficeWithPlan"
+    put:
+      operationId: updateOffice
+      tags: [offices]
+      summary: Update an office
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateOfficeBody"
+      responses:
+        "200":
+          description: Office updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Office"
+    delete:
+      operationId: deleteOffice
+      tags: [offices]
+      summary: Delete an office
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Office deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +816,633 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    LoginBody:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - token
+        - user
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - role
+
+    DashboardStats:
+      type: object
+      properties:
+        totalClients:
+          type: integer
+        totalProjects:
+          type: integer
+        activeProjects:
+          type: integer
+        projectsWaitingApproval:
+          type: integer
+        completedProjects:
+          type: integer
+        totalPlans:
+          type: integer
+        activePlans:
+          type: integer
+        totalOffices:
+          type: integer
+        activeSubscriptions:
+          type: integer
+      required:
+        - totalClients
+        - totalProjects
+        - activeProjects
+        - projectsWaitingApproval
+        - completedProjects
+        - totalPlans
+        - activePlans
+        - totalOffices
+        - activeSubscriptions
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - name
+
+    CreateClientBody:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - name
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        projectName:
+          type: string
+        designType:
+          type: string
+        areaMeters:
+          type: number
+          nullable: true
+        pricePerMeter:
+          type: number
+          nullable: true
+        totalDesignPrice:
+          type: number
+          nullable: true
+        projectStatus:
+          type: string
+        startDate:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - clientId
+        - projectName
+        - designType
+        - projectStatus
+
+    ProjectWithClient:
+      type: object
+      properties:
+        id:
+          type: integer
+        clientId:
+          type: integer
+        clientName:
+          type: string
+          nullable: true
+        projectName:
+          type: string
+        designType:
+          type: string
+        areaMeters:
+          type: number
+          nullable: true
+        pricePerMeter:
+          type: number
+          nullable: true
+        totalDesignPrice:
+          type: number
+          nullable: true
+        projectStatus:
+          type: string
+        startDate:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - clientId
+        - projectName
+        - designType
+        - projectStatus
+
+    CreateProjectBody:
+      type: object
+      properties:
+        clientId:
+          type: integer
+        projectName:
+          type: string
+        designType:
+          type: string
+        areaMeters:
+          type: number
+          nullable: true
+        pricePerMeter:
+          type: number
+          nullable: true
+        projectStatus:
+          type: string
+        startDate:
+          type: string
+          nullable: true
+        notes:
+          type: string
+          nullable: true
+      required:
+        - clientId
+        - projectName
+        - designType
+        - projectStatus
+
+    ProjectStage:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        stageOrder:
+          type: integer
+        stageName:
+          type: string
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        clientFeedback:
+          type: string
+          nullable: true
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - stageOrder
+        - stageName
+        - status
+
+    UpdateStageBody:
+      type: object
+      properties:
+        status:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        clientFeedback:
+          type: string
+          nullable: true
+
+    ClientFeedback:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        stageId:
+          type: integer
+          nullable: true
+        stageName:
+          type: string
+          nullable: true
+        feedbackText:
+          type: string
+        feedbackType:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - feedbackText
+        - feedbackType
+
+    CreateFeedbackBody:
+      type: object
+      properties:
+        stageId:
+          type: integer
+          nullable: true
+        feedbackText:
+          type: string
+        feedbackType:
+          type: string
+      required:
+        - feedbackText
+        - feedbackType
+
+    EstimateItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: integer
+        phaseName:
+          type: string
+        itemName:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+          nullable: true
+        unitPrice:
+          type: number
+        totalPrice:
+          type: number
+        notes:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - projectId
+        - phaseName
+        - itemName
+        - quantity
+        - unitPrice
+        - totalPrice
+
+    EstimatesResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EstimateItem"
+        totalCost:
+          type: number
+      required:
+        - items
+        - totalCost
+
+    CreateEstimateBody:
+      type: object
+      properties:
+        phaseName:
+          type: string
+        itemName:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: string
+          nullable: true
+        unitPrice:
+          type: number
+        notes:
+          type: string
+          nullable: true
+      required:
+        - phaseName
+        - itemName
+        - quantity
+        - unitPrice
+
+    SubscriptionPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        nameAr:
+          type: string
+        nameEn:
+          type: string
+          nullable: true
+        descriptionAr:
+          type: string
+          nullable: true
+        monthlyPrice:
+          type: number
+        yearlyPrice:
+          type: number
+        maxUsers:
+          type: integer
+        maxProjects:
+          type: integer
+        maxClients:
+          type: integer
+        storageLimitMb:
+          type: integer
+        hasClientPortal:
+          type: boolean
+        hasWhatsappNotifications:
+          type: boolean
+        hasPdfReports:
+          type: boolean
+        hasTeamRoles:
+          type: boolean
+        hasAdvancedEstimates:
+          type: boolean
+        isRecommended:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - nameAr
+        - monthlyPrice
+        - yearlyPrice
+        - maxUsers
+        - maxProjects
+        - maxClients
+        - storageLimitMb
+        - hasClientPortal
+        - hasWhatsappNotifications
+        - hasPdfReports
+        - hasTeamRoles
+        - hasAdvancedEstimates
+        - isRecommended
+        - isActive
+        - sortOrder
+
+    CreatePlanBody:
+      type: object
+      properties:
+        nameAr:
+          type: string
+        nameEn:
+          type: string
+          nullable: true
+        descriptionAr:
+          type: string
+          nullable: true
+        monthlyPrice:
+          type: number
+        yearlyPrice:
+          type: number
+        maxUsers:
+          type: integer
+        maxProjects:
+          type: integer
+        maxClients:
+          type: integer
+        storageLimitMb:
+          type: integer
+        hasClientPortal:
+          type: boolean
+        hasWhatsappNotifications:
+          type: boolean
+        hasPdfReports:
+          type: boolean
+        hasTeamRoles:
+          type: boolean
+        hasAdvancedEstimates:
+          type: boolean
+        isRecommended:
+          type: boolean
+        isActive:
+          type: boolean
+        sortOrder:
+          type: integer
+      required:
+        - nameAr
+        - monthlyPrice
+        - yearlyPrice
+        - maxUsers
+        - maxProjects
+        - maxClients
+        - storageLimitMb
+        - hasClientPortal
+        - hasWhatsappNotifications
+        - hasPdfReports
+        - hasTeamRoles
+        - hasAdvancedEstimates
+        - isRecommended
+        - isActive
+        - sortOrder
+
+    Office:
+      type: object
+      properties:
+        id:
+          type: integer
+        officeName:
+          type: string
+        ownerName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        planId:
+          type: integer
+          nullable: true
+        subscriptionStatus:
+          type: string
+        subscriptionStart:
+          type: string
+          nullable: true
+        subscriptionEnd:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - officeName
+        - subscriptionStatus
+
+    OfficeWithPlan:
+      type: object
+      properties:
+        id:
+          type: integer
+        officeName:
+          type: string
+        ownerName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        planId:
+          type: integer
+          nullable: true
+        planName:
+          type: string
+          nullable: true
+        subscriptionStatus:
+          type: string
+        subscriptionStart:
+          type: string
+          nullable: true
+        subscriptionEnd:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - id
+        - officeName
+        - subscriptionStatus
+
+    CreateOfficeBody:
+      type: object
+      properties:
+        officeName:
+          type: string
+        ownerName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        planId:
+          type: integer
+          nullable: true
+        subscriptionStatus:
+          type: string
+        subscriptionStart:
+          type: string
+          nullable: true
+        subscriptionEnd:
+          type: string
+          nullable: true
+      required:
+        - officeName
+        - subscriptionStatus

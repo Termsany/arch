@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "ArchSaaS - نظام إدارة مشاريع التصميم"
+version = "1.0.0"
+id = "artifacts/arch-saas"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21293
+
+[services.development]
+run = "pnpm --filter @workspace/arch-saas run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/arch-saas", "run", "build" ]
+publicDir = "artifacts/arch-saas/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21293"
+BASE_PATH = "/"
