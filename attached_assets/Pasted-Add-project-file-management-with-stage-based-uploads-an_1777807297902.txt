@@ -1,0 +1,139 @@
+Add project file management with stage-based uploads and file versioning.
+
+Goal:
+Office users can upload files for projects and workflow stages, and client portal can view only files marked as visible to client.
+
+Tasks:
+
+1. Backend Upload
+Use multer for file uploads.
+
+Store files locally in:
+backend/uploads/
+
+Serve files from:
+GET /uploads/:filename
+
+Allowed file types:
+- jpg
+- jpeg
+- png
+- webp
+- pdf
+- dwg
+- dxf
+- zip
+- rar
+- docx
+- xlsx
+
+Add file size validation using env:
+MAX_FILE_SIZE_MB=25
+
+2. Database
+Add table:
+
+project_files:
+- id
+- office_id
+- project_id
+- stage_id nullable
+- uploaded_by
+- file_name
+- original_name
+- file_path
+- file_type
+- file_size
+- version_number
+- visibility ENUM('internal','client_visible')
+- file_category
+- notes
+- is_approved_version
+- created_at
+- updated_at
+
+Categories:
+- صور المعاينة
+- Plan 2D
+- Mood Board
+- 3D Design
+- Shop Drawing
+- BOQ
+- Final Delivery
+- Other
+
+3. Versioning
+When uploading a new file with same:
+- project_id
+- stage_id
+- file_category
+
+Set version_number as latest version + 1.
+
+Allow marking only one approved version per:
+- project_id
+- stage_id
+- file_category
+
+4. Backend API
+Add routes:
+- GET /api/projects/:id/files
+- GET /api/stages/:stageId/files
+- POST /api/projects/:id/files
+- PUT /api/files/:fileId
+- DELETE /api/files/:fileId
+- PATCH /api/files/:fileId/mark-approved
+- PATCH /api/files/:fileId/toggle-client-visible
+
+Security:
+- Office users can access only their office files.
+- Client portal can access only files where visibility='client_visible' and project belongs to the client.
+
+5. Frontend Admin
+Inside Project Details page add section:
+"ملفات المشروع"
+
+Features:
+- Upload file
+- Select related stage
+- Select category
+- Add notes
+- Choose visibility:
+  - داخلي فقط
+  - ظاهر للعميل
+- Show file list grouped by category/stage
+- Show version number
+- Mark approved version
+- Download file
+- Delete file
+
+Arabic labels:
+- ملفات المشروع
+- رفع ملف
+- المرحلة المرتبطة
+- التصنيف
+- الملاحظات
+- نسخة
+- داخلي فقط
+- ظاهر للعميل
+- النسخة المعتمدة
+- تعيين كنسخة معتمدة
+- تحميل
+- حذف
+
+6. Client Portal
+In ClientProjectDetails:
+- Show section "ملفات المشروع"
+- Show only client_visible files
+- Allow download/view
+
+7. Testing
+Test:
+- Upload works.
+- File is linked to project.
+- Version number increments correctly.
+- Client sees only client-visible files.
+- Office isolation works.
+
+Keep local storage for MVP.
+Prepare code so storage can later be replaced with S3 or Cloudinary.
