@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { projectsTable, clientsTable, projectStagesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, count } from "drizzle-orm";
 import { authMiddleware, getUser } from "../lib/auth";
+import { getOfficeSubscription } from "../lib/subscription";
 
 const DEFAULT_STAGES = [
   "الاتفاق مع العميل وتحديد نوع التصميم",
@@ -70,6 +71,23 @@ router.post("/projects", authMiddleware, async (req, res) => {
     };
 
     const officeId = user.role === "super_admin" ? (req.body.officeId ?? null) : user.officeId;
+
+    if (user.role !== "super_admin" && officeId) {
+      const sub = await getOfficeSubscription(officeId);
+      if (sub) {
+        if (sub.subscriptionStatus !== "active" && sub.subscriptionStatus !== "trial") {
+          res.status(403).json({ error: "اشتراكك غير نشط. يرجى تجديد الاشتراك لإضافة مشاريع جديدة." });
+          return;
+        }
+        if (sub.maxProjects && sub.maxProjects > 0) {
+          const [{ total }] = await db.select({ total: count() }).from(projectsTable).where(eq(projectsTable.officeId, officeId));
+          if (total >= sub.maxProjects) {
+            res.status(403).json({ error: `وصلت إلى الحد الأقصى للمشاريع في خطتك (${sub.maxProjects} مشاريع). يرجى الترقية للحصول على مزيد من المشاريع.` });
+            return;
+          }
+        }
+      }
+    }
     const totalDesignPrice = areaMeters && pricePerMeter ? String(areaMeters * pricePerMeter) : null;
 
     const [project] = await db

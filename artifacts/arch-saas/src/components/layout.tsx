@@ -1,18 +1,19 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 
 const ALL_NAV_ITEMS = [
-  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false },
-  { href: "/clients", label: "العملاء", icon: Users, superAdminOnly: false },
-  { href: "/projects", label: "المشاريع", icon: FolderOpen, superAdminOnly: false },
-  { href: "/boq-library", label: "مكتبة المقايسة", icon: BookOpen, superAdminOnly: false },
-  { href: "/plans", label: "خطط الاشتراك", icon: CreditCard, superAdminOnly: true },
-  { href: "/offices", label: "المكاتب", icon: Building2, superAdminOnly: true },
-  { href: "/pricing", label: "صفحة الأسعار", icon: Tag, superAdminOnly: false },
+  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false, officeOnly: false },
+  { href: "/clients", label: "العملاء", icon: Users, superAdminOnly: false, officeOnly: false },
+  { href: "/projects", label: "المشاريع", icon: FolderOpen, superAdminOnly: false, officeOnly: false },
+  { href: "/boq-library", label: "مكتبة المقايسة", icon: BookOpen, superAdminOnly: false, officeOnly: false },
+  { href: "/subscription", label: "اشتراكي", icon: BadgeCheck, superAdminOnly: false, officeOnly: true },
+  { href: "/plans", label: "خطط الاشتراك", icon: CreditCard, superAdminOnly: true, officeOnly: false },
+  { href: "/offices", label: "المكاتب", icon: Building2, superAdminOnly: true, officeOnly: false },
+  { href: "/pricing", label: "صفحة الأسعار", icon: Tag, superAdminOnly: false, officeOnly: false },
 ];
 
 function NavLinks({ onClick }: { onClick?: () => void }) {
@@ -20,7 +21,11 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
   const { logout, user } = useAuth();
   const isSuperAdmin = (user as { role?: string } | null)?.role === "super_admin";
 
-  const navItems = ALL_NAV_ITEMS.filter(item => !item.superAdminOnly || isSuperAdmin);
+  const navItems = ALL_NAV_ITEMS.filter(item => {
+    if (item.superAdminOnly && !isSuperAdmin) return false;
+    if (item.officeOnly && isSuperAdmin) return false;
+    return true;
+  });
 
   return (
     <nav className="space-y-1 mt-8 flex flex-col w-full px-4 h-full">

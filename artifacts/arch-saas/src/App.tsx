@@ -14,6 +14,7 @@ import ProjectDetails from "./pages/project-details";
 import Plans from "./pages/plans";
 import Offices from "./pages/offices";
 import BOQLibrary from "./pages/boq-library";
+import Subscription from "./pages/subscription";
 import NotFound from "@/pages/not-found";
 import ClientLogin from "./pages/client-login";
 import ClientPortalDashboard from "./pages/client-portal-dashboard";
@@ -90,6 +91,9 @@ function Router() {
       </Route>
       <Route path="/boq-library">
         {() => <ProtectedRoute component={BOQLibrary} />}
+      </Route>
+      <Route path="/subscription">
+        {() => <ProtectedRoute component={Subscription} />}
       </Route>
       <Route component={NotFound} />
     </Switch>

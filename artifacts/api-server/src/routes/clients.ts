@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { clientsTable, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import { authMiddleware, getUser, hashPassword } from "../lib/auth";
+import { getOfficeSubscription } from "../lib/subscription";
 
 const router = Router();
 
@@ -39,6 +40,23 @@ router.post("/clients", authMiddleware, async (req, res) => {
       return;
     }
     const officeId = user.role === "super_admin" ? (req.body.officeId ?? null) : user.officeId;
+
+    if (user.role !== "super_admin" && officeId) {
+      const sub = await getOfficeSubscription(officeId);
+      if (sub) {
+        if (sub.subscriptionStatus !== "active" && sub.subscriptionStatus !== "trial") {
+          res.status(403).json({ error: "اشتراكك غير نشط. يرجى تجديد الاشتراك لإضافة عملاء جدد." });
+          return;
+        }
+        if (sub.maxClients && sub.maxClients > 0) {
+          const [{ total }] = await db.select({ total: count() }).from(clientsTable).where(eq(clientsTable.officeId, officeId));
+          if (total >= sub.maxClients) {
+            res.status(403).json({ error: `وصلت إلى الحد الأقصى للعملاء في خطتك (${sub.maxClients} عملاء). يرجى الترقية للحصول على مزيد من العملاء.` });
+            return;
+          }
+        }
+      }
+    }
     const [client] = await db
       .insert(clientsTable)
       .values({ name, phone, email, address, notes, officeId })
