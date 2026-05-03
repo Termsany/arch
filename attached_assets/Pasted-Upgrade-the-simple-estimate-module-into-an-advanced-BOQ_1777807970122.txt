@@ -1,0 +1,125 @@
+Upgrade the simple estimate module into an advanced BOQ and costing system.
+
+Goal:
+Offices can manage BOQ categories, item library, material cost, labor cost, waste percentage, profit margin, and final pricing.
+
+Tasks:
+
+1. Database
+Add table:
+
+boq_categories:
+- id
+- office_id
+- name
+- description
+- sort_order
+- created_at
+- updated_at
+
+Add table:
+
+boq_items_library:
+- id
+- office_id
+- category_id
+- item_name
+- default_unit
+- default_material_cost
+- default_labor_cost
+- default_waste_percentage
+- default_profit_margin
+- notes
+- created_at
+- updated_at
+
+Update project_estimates or add missing columns:
+- office_id
+- category_id
+- material_unit_cost
+- labor_unit_cost
+- waste_percentage
+- profit_margin
+- unit_cost_before_profit
+- total_cost_before_profit
+- total_price
+
+Calculations:
+unit_cost_before_profit = material_unit_cost + labor_unit_cost
+total_cost_before_profit = quantity * unit_cost_before_profit * (1 + waste_percentage / 100)
+total_price = total_cost_before_profit * (1 + profit_margin / 100)
+
+2. Backend API
+BOQ categories:
+- GET /api/boq/categories
+- POST /api/boq/categories
+- PUT /api/boq/categories/:id
+- DELETE /api/boq/categories/:id
+
+BOQ library:
+- GET /api/boq/library
+- POST /api/boq/library
+- PUT /api/boq/library/:id
+- DELETE /api/boq/library/:id
+
+Update estimate endpoints:
+- Support category_id
+- Support material/labor/waste/profit fields
+- Return calculated totals
+
+3. Frontend
+Add pages:
+- BOQCategories
+- BOQLibrary
+
+Route:
+- /boq-library
+
+Sidebar:
+- مكتبة المقايسة
+
+In ProjectDetails > المقايسة:
+- Add advanced estimate form.
+- Select item from library.
+- Auto-fill unit and default costs.
+- Allow manual override.
+- Show calculated totals.
+
+4. Arabic labels:
+- مكتبة المقايسة
+- تصنيفات البنود
+- بند من المكتبة
+- تكلفة الخامة
+- تكلفة المصنعية
+- نسبة الهالك
+- هامش الربح
+- تكلفة قبل الربح
+- السعر النهائي
+- إجمالي تكلفة الخامات
+- إجمالي تكلفة المصنعيات
+- إجمالي قبل الربح
+- إجمالي بعد الربح
+
+5. Seed Categories
+Add:
+- أعمال هدم
+- أعمال مباني
+- كهرباء
+- سباكة
+- محارة
+- أرضيات
+- دهانات
+- نجارة
+- مطبخ
+- حمام
+- فرش وتشطيب نهائي
+
+6. Testing
+Test:
+- BOQ calculations are correct.
+- Item library works.
+- Estimate total updates.
+- Office isolation works.
+- Existing simple estimates still work or are migrated cleanly.
+
+Keep the feature practical and not overcomplicated.
