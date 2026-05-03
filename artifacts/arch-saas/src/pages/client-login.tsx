@@ -45,6 +45,7 @@ export default function ClientLogin() {
                   id="email"
                   type="email"
                   dir="ltr"
+                  autoComplete="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -58,6 +59,7 @@ export default function ClientLogin() {
                   id="password"
                   type="password"
                   dir="ltr"
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

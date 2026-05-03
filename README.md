@@ -1,68 +1,49 @@
 # ArchSaaS — نظام إدارة مشاريع التصميم
 
-A full-stack Arabic RTL SaaS platform for architecture and interior design firms.
-
----
-
 ## What was added in this phase
 
-- Real office-based multi-tenancy
-- JWT now carries user office assignment
-- API access checks for clients, projects, stages, feedback, estimates, and dashboard stats
-- Frontend sidebar hides super-admin-only pages for office users
-- Seeded 2 offices, 3 users, 4 clients, 4 projects, and workflow stages
-
----
+- Client portal with RTL Arabic pages
+- Client approvals and revision requests
+- Role-based separation between admin and client sessions
+- Admin client-portal account management
+- Approval tracking on project stages
 
 ## Database changes
 
-- `users.office_id` added and made nullable
-- `clients.office_id` used to scope client data by office
-- `projects.office_id` used to scope project data by office
-- All related seed data was updated to match office ownership
+- `users.client_id` nullable
+- new `stage_approvals` table
+- approvals track `pending`, `approved`, and `revision_requested`
+- seed data now includes a client portal account
 
----
+## New routes
 
-## New routes and behavior
+### Admin/API
+- `GET /api/clients/:id/portal-user`
+- `POST /api/clients/:id/portal-user`
+- `GET /api/projects/:id/approvals`
+- `GET /api/auth/client-me`
 
-### Auth
-- `POST /api/auth/login`
-- `GET /api/auth/me`
+### Client portal
+- `GET /api/client-portal/projects`
+- `GET /api/client-portal/projects/:id`
+- `GET /api/client-portal/projects/:id/stages`
+- `GET /api/client-portal/projects/:id/feedback`
+- `POST /api/client-portal/stages/:stageId/approve`
+- `POST /api/client-portal/stages/:stageId/request-revision`
 
-### Office isolation
-- `GET /api/clients` filters by office for non-super_admin
-- `GET /api/projects` filters by office for non-super_admin
-- `GET /api/projects/:id` returns 403 for cross-office access
-- `PUT /api/projects/:id` returns 403 for cross-office access
-- `DELETE /api/projects/:id` returns 403 for cross-office access
-- `GET /api/projects/:id/stages` checks project ownership
-- `GET /api/projects/:id/feedback` checks project ownership
-- `POST /api/projects/:id/feedback` checks project ownership
-- `GET /api/projects/:id/estimates` checks project ownership
-- `POST /api/projects/:id/estimates` checks project ownership
-- `PUT /api/stages/:stageId` checks parent project ownership
-- `PUT /api/estimates/:estimateId` checks parent project ownership
-- `DELETE /api/estimates/:estimateId` checks parent project ownership
-- `GET /api/dashboard/stats` filters by office for non-super_admin
-- `GET /api/dashboard/recent-projects` filters by office for non-super_admin
-- `GET /api/dashboard/pending-approvals` filters by office for non-super_admin
-- `GET /api/dashboard/recent-offices` stays super_admin-only
+### Frontend
+- `/client/login`
+- `/client/projects`
+- `/client/projects/:id`
 
----
+## How to test the feature
 
-## How to test this feature
-
-### Login accounts
-- `admin@example.com` / `admin123` — sees everything
-- `office1admin@example.com` / `admin123` — sees office 1 only
-- `office2admin@example.com` / `admin123` — sees office 2 only
-
-### Manual checks
-1. Log in as `admin@example.com` and confirm all clients/projects appear.
-2. Log in as `office1admin@example.com` and confirm only office 1 data appears.
-3. Open `/api/projects/3` with office 1 token and confirm it returns `403`.
-4. Check `/api/dashboard/stats` for each account and confirm office-filtered counts.
-5. Confirm the sidebar hides `خطط الاشتراك` and `المكاتب` for non-super_admin users.
+1. Log in as `client@example.com` / `admin123` at `/client/login`.
+2. Confirm only that client’s projects appear.
+3. Open a project and verify stage list, approval badges, and feedback history.
+4. Approve a stage or request revision and confirm the status changes.
+5. Log in as `admin@example.com` / `admin123` and open `/clients` to create or view a portal account.
+6. Confirm client tokens cannot access admin routes like `/api/clients`.
 
 ---
 
