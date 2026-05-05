@@ -16,7 +16,7 @@ async function checkProjectAccess(projectId: number, userId: { role: string; off
 router.get("/projects/:id/stages", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"] || "0"));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول لمراحل هذا المشروع" });
@@ -38,7 +38,7 @@ router.get("/projects/:id/stages", authMiddleware, async (req, res) => {
 router.put("/stages/:stageId", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const stageId = parseInt(req.params["stageId"]!);
+    const stageId = parseInt(String(req.params["stageId"] || "0"));
 
     const stage = await db.select().from(projectStagesTable).where(eq(projectStagesTable.id, stageId)).limit(1);
     if (!stage[0]) {

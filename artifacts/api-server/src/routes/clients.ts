@@ -53,7 +53,7 @@ router.post("/clients", authMiddleware, async (req, res) => {
 router.get("/clients/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = parseInt(String(req.params["id"] || "0"));
     const clients = await db.select().from(clientsTable).where(eq(clientsTable.id, id)).limit(1);
     if (!clients[0]) {
       res.status(404).json({ error: "العميل غير موجود" });
@@ -73,7 +73,7 @@ router.get("/clients/:id", authMiddleware, async (req, res) => {
 router.put("/clients/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = parseInt(String(req.params["id"] || "0"));
 
     const existing = await db.select().from(clientsTable).where(eq(clientsTable.id, id)).limit(1);
     if (!existing[0]) {
@@ -103,7 +103,7 @@ router.put("/clients/:id", authMiddleware, async (req, res) => {
 router.delete("/clients/:id", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const id = parseInt(req.params["id"]!);
+    const id = parseInt(String(req.params["id"] || "0"));
 
     const existing = await db.select().from(clientsTable).where(eq(clientsTable.id, id)).limit(1);
     if (!existing[0]) {

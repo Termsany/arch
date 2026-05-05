@@ -16,7 +16,7 @@ async function checkProjectAccess(projectId: number, user: { role: string; offic
 router.get("/projects/:id/estimates", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"] || "0"));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول لمقايسات هذا المشروع" });
@@ -44,7 +44,7 @@ router.get("/projects/:id/estimates", authMiddleware, async (req, res) => {
 router.post("/projects/:id/estimates", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"] || "0"));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية إضافة بنود لهذا المشروع" });
@@ -78,7 +78,7 @@ router.post("/projects/:id/estimates", authMiddleware, async (req, res) => {
 router.put("/estimates/:estimateId", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const estimateId = parseInt(req.params["estimateId"]!);
+    const estimateId = parseInt(String(req.params["estimateId"] || "0"));
 
     const existing = await db.select().from(projectEstimatesTable).where(eq(projectEstimatesTable.id, estimateId)).limit(1);
     if (!existing[0]) {
@@ -110,7 +110,7 @@ router.put("/estimates/:estimateId", authMiddleware, async (req, res) => {
 router.delete("/estimates/:estimateId", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const estimateId = parseInt(req.params["estimateId"]!);
+    const estimateId = parseInt(String(req.params["estimateId"] || "0"));
 
     const existing = await db.select().from(projectEstimatesTable).where(eq(projectEstimatesTable.id, estimateId)).limit(1);
     if (!existing[0]) {

@@ -56,7 +56,7 @@ export default function ProjectDetails() {
   const updateStageMutation = useUpdateStage();
   const handleUpdateStageStatus = (stageId: number, status: string) => {
     updateStageMutation.mutate(
-      { id: stageId, data: { status } },
+      { stageId, data: { status } },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetProjectStagesQueryKey(projectId) });
@@ -75,7 +75,7 @@ export default function ProjectDetails() {
     e.preventDefault();
     createFeedbackMutation.mutate(
       { 
-        projectId, 
+        id: projectId, 
         data: {
           stageId: feedbackForm.stageId === "all" ? null : parseInt(feedbackForm.stageId),
           feedbackText: feedbackForm.feedbackText,
@@ -102,7 +102,7 @@ export default function ProjectDetails() {
   const handleEstimateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     createEstimateMutation.mutate(
-      { projectId, data: estimateForm },
+      { id: projectId, data: estimateForm },
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetProjectEstimatesQueryKey(projectId) });
@@ -393,7 +393,7 @@ export default function ProjectDetails() {
                                       <AlertDialogFooter className="gap-2 sm:gap-0">
                                         <AlertDialogCancel>إلغاء</AlertDialogCancel>
                                         <AlertDialogAction onClick={() => deleteEstimateMutation.mutate(
-                                          { id: item.id },
+                                          { estimateId: item.id },
                                           { onSuccess: () => {
                                             queryClient.invalidateQueries({ queryKey: getGetProjectEstimatesQueryKey(projectId) });
                                             toast({ title: "تم الحذف بنجاح" });

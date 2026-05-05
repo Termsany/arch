@@ -10,6 +10,7 @@ import Pricing from "./pages/pricing";
 import Clients from "./pages/clients";
 import Projects from "./pages/projects";
 import ProjectDetails from "./pages/project-details";
+import Reports from "./pages/reports";
 import Plans from "./pages/plans";
 import Offices from "./pages/offices";
 import NotFound from "@/pages/not-found";
@@ -58,6 +59,9 @@ function Router() {
       </Route>
       <Route path="/projects/:id">
         {() => <ProtectedRoute component={ProjectDetails} />}
+      </Route>
+      <Route path="/reports">
+        {() => <ProtectedRoute component={Reports} />}
       </Route>
       <Route path="/plans">
         {() => <ProtectedRoute component={Plans} />}

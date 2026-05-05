@@ -16,7 +16,7 @@ async function checkProjectAccess(projectId: number, user: { role: string; offic
 router.get("/projects/:id/feedback", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"] || "0"));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية الوصول لملاحظات هذا المشروع" });
@@ -47,7 +47,7 @@ router.get("/projects/:id/feedback", authMiddleware, async (req, res) => {
 router.post("/projects/:id/feedback", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const projectId = parseInt(req.params["id"]!);
+    const projectId = parseInt(String(req.params["id"] || "0"));
 
     if (!(await checkProjectAccess(projectId, user))) {
       res.status(403).json({ error: "ليس لديك صلاحية إضافة ملاحظات لهذا المشروع" });

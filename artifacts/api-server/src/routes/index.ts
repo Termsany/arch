@@ -9,6 +9,7 @@ import feedbackRouter from "./feedback";
 import estimatesRouter from "./estimates";
 import plansRouter from "./plans";
 import officesRouter from "./offices";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(feedbackRouter);
 router.use(estimatesRouter);
 router.use(plansRouter);
 router.use(officesRouter);
+router.use(reportsRouter);
 
 export default router;

@@ -1,8 +1,9 @@
+import { useEffect, useState } from "react";
 import { useGetDashboardStats, useGetRecentProjects, useGetPendingApprovals, useGetRecentOffices } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FolderOpen, Clock, CheckCircle2, AlertCircle, CreditCard, PlayCircle, Building2, Activity } from "lucide-react";
+import { Users, FolderOpen, Clock, CheckCircle2, AlertCircle, CreditCard, PlayCircle, Building2, Activity, Receipt, WalletCards, HardDrive } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 
@@ -11,12 +12,27 @@ export default function Dashboard() {
   const { data: recentProjects, isLoading: projectsLoading } = useGetRecentProjects();
   const { data: pendingApprovals, isLoading: pendingLoading } = useGetPendingApprovals();
   const { data: recentOffices, isLoading: officesLoading } = useGetRecentOffices();
+  const [overview, setOverview] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    fetch("/api/reports/overview", {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token") || ""}` },
+    })
+      .then((res) => res.json())
+      .then((body) => setOverview(body.success ? body.data : null))
+      .catch(() => setOverview(null));
+  }, []);
 
   const statCards = [
     { title: "إجمالي العملاء", value: stats?.totalClients, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
     { title: "إجمالي المشاريع", value: stats?.totalProjects, icon: FolderOpen, color: "text-indigo-500", bg: "bg-indigo-500/10" },
     { title: "المشاريع الجارية", value: stats?.activeProjects, icon: PlayCircle, color: "text-amber-500", bg: "bg-amber-500/10" },
     { title: "في انتظار موافقة العميل", value: stats?.projectsWaitingApproval, icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
+    { title: "إجمالي الفواتير", value: overview?.total_invoice_value, icon: Receipt, color: "text-cyan-600", bg: "bg-cyan-500/10" },
+    { title: "إجمالي المدفوع", value: overview?.total_paid_amount, icon: WalletCards, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+    { title: "إجمالي المستحق", value: overview?.total_outstanding_amount, icon: CreditCard, color: "text-amber-600", bg: "bg-amber-500/10" },
+    { title: "المهام المتأخرة", value: overview?.overdue_tasks_count, icon: AlertCircle, color: "text-red-600", bg: "bg-red-500/10" },
+    { title: "مساحة التخزين المستخدمة", value: overview?.storage_used_mb, icon: HardDrive, color: "text-slate-600", bg: "bg-slate-500/10" },
     { title: "المشاريع المكتملة", value: stats?.completedProjects, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
     { title: "خطط الاشتراك", value: stats?.totalPlans, icon: CreditCard, color: "text-purple-500", bg: "bg-purple-500/10" },
     { title: "الخطط النشطة", value: stats?.activePlans, icon: Activity, color: "text-rose-500", bg: "bg-rose-500/10" },
