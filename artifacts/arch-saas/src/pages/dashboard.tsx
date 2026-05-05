@@ -3,7 +3,7 @@ import { useGetDashboardStats, useGetRecentProjects, useGetPendingApprovals, use
 import { AppLayout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, FolderOpen, Clock, CheckCircle2, AlertCircle, CreditCard, PlayCircle, Building2, Activity, ListChecks, ClipboardList, CalendarDays, Receipt, WalletCards, CircleDollarSign } from "lucide-react";
+import { Users, FolderOpen, Clock, CheckCircle2, AlertCircle, CreditCard, PlayCircle, Building2, Activity, ListChecks, ClipboardList, CalendarDays, Receipt, WalletCards, CircleDollarSign, Database } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { parseApiResponse } from "@/lib/api-response";
 import { fetchTaskStats, type TaskStats } from "@/lib/tasks";
 import { fetchFinanceStats, formatAmount, type FinanceStats } from "@/lib/invoices";
+import { fetchOverviewReport, type OverviewReport } from "@/lib/reports";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
@@ -21,6 +22,7 @@ export default function Dashboard() {
   const [isCompleting, setIsCompleting] = useState(false);
   const [taskStats, setTaskStats] = useState<TaskStats | null>(null);
   const [financeStats, setFinanceStats] = useState<FinanceStats | null>(null);
+  const [overviewReport, setOverviewReport] = useState<OverviewReport | null>(null);
 
   useEffect(() => {
     fetch("/api/onboarding/status", {
@@ -34,6 +36,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchTaskStats().then(setTaskStats).catch(() => setTaskStats(null));
     fetchFinanceStats().then(setFinanceStats).catch(() => setFinanceStats(null));
+    fetchOverviewReport().then(setOverviewReport).catch(() => setOverviewReport(null));
   }, []);
 
   const completeOnboarding = async () => {
@@ -61,9 +64,10 @@ export default function Dashboard() {
     { title: "مهامي", value: taskStats?.myTasks, icon: ClipboardList, color: "text-sky-500", bg: "bg-sky-500/10" },
     { title: "المهام المتأخرة", value: taskStats?.overdueTasks, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
     { title: "مهام هذا الأسبوع", value: taskStats?.thisWeekTasks, icon: CalendarDays, color: "text-lime-600", bg: "bg-lime-500/10" },
-    { title: "إجمالي الفواتير", value: financeStats ? formatAmount(financeStats.totalInvoices) : undefined, icon: Receipt, color: "text-cyan-600", bg: "bg-cyan-500/10" },
-    { title: "إجمالي المدفوع", value: financeStats ? formatAmount(financeStats.totalPaid) : undefined, icon: WalletCards, color: "text-emerald-600", bg: "bg-emerald-500/10" },
-    { title: "إجمالي المستحق", value: financeStats ? formatAmount(financeStats.totalDue) : undefined, icon: CircleDollarSign, color: "text-amber-600", bg: "bg-amber-500/10" },
+    { title: "إجمالي الفواتير", value: overviewReport ? formatAmount(overviewReport.total_invoice_value) : financeStats ? formatAmount(financeStats.totalInvoices) : undefined, icon: Receipt, color: "text-cyan-600", bg: "bg-cyan-500/10" },
+    { title: "إجمالي المدفوع", value: overviewReport ? formatAmount(overviewReport.total_paid_amount) : financeStats ? formatAmount(financeStats.totalPaid) : undefined, icon: WalletCards, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+    { title: "إجمالي المستحق", value: overviewReport ? formatAmount(overviewReport.total_outstanding_amount) : financeStats ? formatAmount(financeStats.totalDue) : undefined, icon: CircleDollarSign, color: "text-amber-600", bg: "bg-amber-500/10" },
+    { title: "مساحة التخزين المستخدمة", value: overviewReport ? `${overviewReport.storage_used_mb.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} MB` : undefined, icon: Database, color: "text-violet-600", bg: "bg-violet-500/10" },
     { title: "الفواتير المتأخرة", value: financeStats?.overdueInvoices, icon: AlertCircle, color: "text-red-600", bg: "bg-red-500/10" },
     { title: "المشاريع المكتملة", value: stats?.completedProjects, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
     { title: "خطط الاشتراك", value: stats?.totalPlans, icon: CreditCard, color: "text-purple-500", bg: "bg-purple-500/10" },

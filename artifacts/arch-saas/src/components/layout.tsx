@@ -1,17 +1,18 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
 import { NotificationBell } from "@/components/notification-bell";
 
 const ALL_NAV_ITEMS = [
-  { href: "/", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false, officeOnly: false },
+  { href: "/dashboard", label: "لوحة التحكم", icon: LayoutDashboard, superAdminOnly: false, officeOnly: false },
   { href: "/clients", label: "العملاء", icon: Users, superAdminOnly: false, officeOnly: false },
   { href: "/projects", label: "المشاريع", icon: FolderOpen, superAdminOnly: false, officeOnly: false },
   { href: "/tasks", label: "المهام", icon: ClipboardList, superAdminOnly: false, officeOnly: false },
   { href: "/invoices", label: "الفواتير والمدفوعات", icon: Receipt, superAdminOnly: false, officeOnly: false },
+  { href: "/reports", label: "التقارير", icon: BarChart3, superAdminOnly: false, officeOnly: false },
   { href: "/boq-library", label: "مكتبة المقايسة", icon: BookOpen, superAdminOnly: false, officeOnly: false },
   { href: "/notifications", label: "الإشعارات", icon: Bell, superAdminOnly: false, officeOnly: false },
   { href: "/subscription", label: "اشتراكي", icon: BadgeCheck, superAdminOnly: false, officeOnly: true },
@@ -108,7 +109,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [location] = useLocation();
 
-  if (location === "/login" || location === "/pricing") {
+  if (location === "/" || location === "/login" || location === "/client/login" || location === "/pricing" || location === "/start") {
     return <>{children}</>;
   }
 

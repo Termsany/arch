@@ -22,6 +22,7 @@
 - Task smoke test creates a project task, assigns it, changes status, verifies project detail listing, dashboard counters, notifications, office isolation, and deletion.
 - Task invalid-id smoke test confirms `/api/tasks/abc`, `/api/tasks/abc/status`, and `/api/projects/abc/tasks` return structured 400 errors.
 - Invoice smoke test creates an invoice, adds items, verifies totals, records payments, verifies partial/paid status, creates a printable invoice document, checks notifications, office isolation, client blocking, and deletion.
+- Reports smoke test opens `/reports`, calls every `/api/reports/*` endpoint, verifies office isolation, verifies client blocking, and checks date filters.
 
 ## Office Isolation
 - `super_admin` can see all offices, clients, and projects.
@@ -30,6 +31,7 @@
 - Office users cannot open another office's generated documents by URL.
 - Office users cannot see another office's notifications.
 - Client users cannot access admin routes.
+- Client users cannot access report routes.
 
 ## Clients CRUD
 - Create a client with valid name and optional contact data.
@@ -176,6 +178,30 @@
 - Overdue transition creates an `invoice_overdue` notification.
 - `POST /api/invoices/:id/document` creates a printable `invoice` document.
 - Printable invoice includes office name, client name, project name, invoice number, invoice items, totals, payments summary, and remaining amount.
+
+## Reports And Analytics
+- `database/migrations/007_reports_indexes.sql` has been applied or equivalent indexes exist.
+- Report indexes exist for `clients.office_id`, `projects.office_id`, `projects.client_id`, `project_stages.project_id`, `project_estimates.project_id`, `invoices.office_id`, `invoices.project_id`, `invoices.client_id`, `payments.office_id`, `payments.invoice_id`, `project_tasks.office_id`, `project_tasks.assigned_to`, `project_files.office_id`, and `project_files.project_id`.
+- `GET /api/reports/overview` returns clients, projects, BOQ, invoices, payments, outstanding, overdue invoices, open tasks, overdue tasks, and storage usage.
+- `GET /api/reports/projects` returns status, design type, monthly created/completed projects, waiting approvals, and revision requests.
+- `GET /api/reports/clients` returns total clients, new clients per month, most active clients, pending approvals, and unpaid invoices.
+- `GET /api/reports/workflow` returns stage statuses, waiting approvals, revision stages, common revision stages, blocked projects, and `average_stage_completion_time = null` when timestamps are not enough.
+- `GET /api/reports/finance` returns invoice statuses, totals, overdue invoices, monthly payments/invoices, top projects, and top clients.
+- `GET /api/reports/tasks` returns status, priority, assignee, overdue, due-this-week, and completed-per-month data.
+- `GET /api/reports/storage` returns total files, storage used, files by category, storage by project, visibility, and largest files.
+- `office_admin` sees only their own office report data.
+- `super_admin` can see global report data and can filter by `office_id`.
+- `office_id` query parameter is ignored for non-super-admin users.
+- Date filters `from_date` and `to_date` reduce results without SQL errors.
+- `accountant` can access finance and overview reports.
+- `project_manager` can access project, workflow, task, storage, and overview reports.
+- `designer` can access limited project and task reports.
+- Client users receive 403 for report routes.
+- `/reports` shows Arabic RTL tabs: "تقرير عام", "المشاريع", "العملاء", "المراحل", "المالي", "المهام", and "التخزين".
+- `/reports` shows "من تاريخ", "إلى تاريخ", and "تطبيق الفلتر".
+- Super admin users see an office filter when offices are available.
+- Reports render empty states instead of crashing when the database has no rows.
+- Dashboard includes report summary values for total invoice value, paid amount, outstanding amount, overdue tasks, and storage used.
 
 ## Billing Limits
 - Inactive subscriptions cannot create new clients or projects.

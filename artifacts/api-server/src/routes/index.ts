@@ -18,6 +18,7 @@ import documentsRouter from "./documents";
 import notificationsRouter from "./notifications";
 import tasksRouter from "./tasks";
 import invoicesRouter from "./invoices";
+import reportsRouter from "./reports";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(documentsRouter);
 router.use(notificationsRouter);
 router.use(tasksRouter);
 router.use(invoicesRouter);
+router.use(reportsRouter);
 
 export default router;

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { Link } from "wouter";
 
 export default function ClientLogin() {
   const { loginAsClient, isLoading } = useClientAuth();
@@ -85,6 +86,12 @@ export default function ClientLogin() {
           هذه البوابة مخصصة للعملاء فقط.{" "}
           <a href="/login" className="text-primary hover:underline">صفحة دخول المشرفين</a>
         </p>
+        <div className="mt-3 text-center">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+            <ArrowRight className="w-4 h-4" />
+            العودة لاختيار نوع الدخول
+          </Link>
+        </div>
       </div>
     </div>
   );

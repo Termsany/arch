@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { ClientAuthProvider, useClientAuth } from "@/hooks/use-client-auth";
 import { Loader2 } from "lucide-react";
+import Home from "./pages/home";
 import Login from "./pages/login";
 import Dashboard from "./pages/dashboard";
 import Pricing from "./pages/pricing";
@@ -19,6 +20,7 @@ import TasksPage from "./pages/tasks";
 import InvoicesPage from "./pages/invoices";
 import InvoiceDetailsPage from "./pages/invoice-details";
 import InvoiceFormPage from "./pages/invoice-form";
+import ReportsPage from "./pages/reports";
 import Plans from "./pages/plans";
 import Offices from "./pages/offices";
 import BOQLibrary from "./pages/boq-library";
@@ -88,7 +90,8 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/start" component={Start} />
-      <Route path="/">
+      <Route path="/" component={Home} />
+      <Route path="/dashboard">
         {() => <ProtectedRoute component={Dashboard} />}
       </Route>
       <Route path="/clients">
@@ -105,6 +108,9 @@ function Router() {
       </Route>
       <Route path="/invoices/:id">
         {() => <ProtectedRoute component={InvoiceDetailsPage} />}
+      </Route>
+      <Route path="/reports">
+        {() => <ProtectedRoute component={ReportsPage} />}
       </Route>
       <Route path="/projects/:id/invoices/new">
         {() => <ProtectedRoute component={InvoiceFormPage} />}

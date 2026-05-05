@@ -10,6 +10,7 @@
 - BOQ / costing system with advanced estimates and library items
 - Client portal for approvals and revision requests
 - Project file management with versioning and client visibility controls
+- Reports and analytics dashboards for office admins and super admins
 
 ## Database tables
 
@@ -115,6 +116,17 @@
 - `POST /api/invoices/:id/document`
 - `GET /api/dashboard/finance-stats`
 
+### Reports and analytics
+- `GET /api/reports/overview`
+- `GET /api/reports/projects`
+- `GET /api/reports/clients`
+- `GET /api/reports/workflow`
+- `GET /api/reports/finance`
+- `GET /api/reports/tasks`
+- `GET /api/reports/storage`
+
+All report routes support `from_date`, `to_date`, and `office_id` for `super_admin` users only. Office users are always scoped to their own `office_id`.
+
 ### Admin — stage approvals
 - `GET /api/projects/:id/approvals`
 
@@ -154,6 +166,9 @@
 - Fixed dashboard project status counters to support the Arabic statuses used by seeded data.
 - Fixed client portal file download links to use the API upload route.
 - Updated Docker/Nginx upload proxy routing.
+- Added reports API and `/reports` page with Arabic RTL sections for overview, projects, clients, workflow, finance, tasks, and storage.
+- Added dashboard analytics summary for total invoices, paid amount, outstanding amount, overdue tasks, and storage used.
+- Added `database/migrations/007_reports_indexes.sql` for report performance indexes on clients, projects, stages, BOQ estimates, invoices, payments, tasks, and files.
 
 ## Frontend pages
 
@@ -167,6 +182,7 @@
 - `/invoices` — office invoices and manual payment tracking
 - `/invoices/:id` — invoice details, items, payments, totals, and printable invoice creation
 - `/projects/:id/invoices/new` — create a new invoice for a project
+- `/reports` — reports and analytics dashboards
 - `/documents/:id` — printable Arabic RTL document viewer
 - `/notifications` — in-app notifications list and read controls
 - `/plans` — subscription plan management
@@ -250,6 +266,7 @@ The compose stack includes:
 - Project tasks require `database/migrations/004_project_tasks.sql` or Drizzle push to create `project_task_status`, `project_task_priority`, `project_tasks`, and indexes for `office_id`, `project_id`, `assigned_to`, and `status`.
 - Invoices and manual payments require `database/migrations/005_invoices_payments.sql` or Drizzle push to create `invoice_status`, `invoices`, `invoice_items`, `payments`, their indexes, and add `invoice` to `project_document_type`.
 - Cloud/local file storage metadata requires `database/migrations/006_file_storage_provider.sql` or Drizzle push to add `file_url` and `storage_provider` to `project_files`.
+- Reports performance indexes require `database/migrations/007_reports_indexes.sql` or equivalent database index creation.
 - The app currently runs on PostgreSQL; `html_content` is stored as `TEXT`, which is PostgreSQL's practical equivalent for the requested long printable HTML content.
 - For an existing dump, import it with your database tool first, then run the app against the imported `DATABASE_URL`.
 - The project currently uses Drizzle/PostgreSQL connection settings through `DATABASE_URL`; the `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` entries in `.env.example` are included for deployment platforms that expose split database variables.
@@ -336,6 +353,16 @@ The compose stack includes:
 11. Log in as another office admin and confirm direct access to the first office invoice returns 403.
 12. Confirm client users cannot access invoice routes.
 13. Confirm notification bell receives invoice creation and payment recording notifications.
+
+## How to test reports and analytics
+
+1. Log in as `office1admin@example.com`.
+2. Open `/reports` and switch between "تقرير عام", "المشاريع", "العملاء", "المراحل", "المالي", "المهام", and "التخزين".
+3. Apply "من تاريخ" and "إلى تاريخ" filters and confirm results update without crashing on empty data.
+4. Confirm finance totals match invoices and payments, BOQ totals match `project_estimates`, task totals match `/tasks`, and storage totals match uploaded file sizes.
+5. Log in as `admin@example.com` and confirm the office filter appears and can restrict results by office.
+6. Log in as `client@example.com` and confirm report routes return 403.
+7. Confirm dashboard cards include invoice value, paid amount, outstanding amount, overdue tasks, and storage used.
 
 ## File upload limits
 

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import { Building2, ArrowRight } from "lucide-react";
+import { Link } from "wouter";
 
 export default function Login() {
   const { login, isLoading } = useAuth();
@@ -62,6 +63,10 @@ export default function Login() {
             <p className="text-sm text-muted-foreground text-center">
               للتجربة استخدم: <span dir="ltr" className="font-mono text-xs bg-muted px-1 py-0.5 rounded">admin@example.com / admin123</span>
             </p>
+            <Link href="/" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+              <ArrowRight className="w-4 h-4" />
+              العودة لاختيار نوع الدخول
+            </Link>
           </CardFooter>
         </form>
       </Card>
