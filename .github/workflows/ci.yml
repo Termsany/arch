@@ -74,10 +74,7 @@ jobs:
 
       - name: Create upload directory
         run: mkdir -p /tmp/arch-saas-uploads
-
-      - name: Run database migrations if available
-        run: pnpm run db:migrate --if-present
-
+      
       - name: Typecheck
         run: pnpm run typecheck --if-present
 
