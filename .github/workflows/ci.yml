@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  build:
+    name: Monorepo CI
+    runs-on: ubuntu-latest
+
+    env:
+      NODE_ENV: test
+      CI: true
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/arch_saas
+      JWT_SECRET: test-jwt-secret
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:5173
+      VITE_API_URL: http://localhost:4000/api
+      STORAGE_PROVIDER: local
+      UPLOAD_DIR: /tmp/arch-saas-uploads
+      MAX_FILE_SIZE_MB: 25
+      WHATSAPP_ENABLED: false
+      WHATSAPP_PROVIDER: simulation
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: arch_saas
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d arch_saas"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Create upload directory
+        run: mkdir -p /tmp/arch-saas-uploads
+
+      - name: Run database migrations if available
+        run: pnpm run db:migrate --if-present
+
+      - name: Typecheck
+        run: pnpm run typecheck --if-present
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Docker compose config check
+        run: docker compose config
