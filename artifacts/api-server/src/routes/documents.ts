@@ -17,6 +17,7 @@ import { authMiddleware, getUser, type AuthUser } from "../lib/auth";
 import { asyncHandler, fail, ok } from "../lib/http";
 import { requireActiveSubscription } from "../lib/subscription";
 import { createNotification } from "../lib/notifications";
+import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
 
 const router = Router();
 
@@ -428,6 +429,24 @@ router.post("/projects/:id/documents/quotation", authMiddleware, asyncHandler(as
     message: `تم إنشاء عرض سعر لمشروع "${access.context.projectName}".`,
     notificationType: "quotation_generated",
   });
+
+  if (access.context.clientPhone) {
+    const messageBody = await renderWhatsAppTemplateByKey(access.context.officeId, "quotation_created", {
+      client_name: access.context.clientName,
+      project_name: access.context.projectName,
+    });
+    if (messageBody) {
+      await sendWhatsAppMessage({
+        officeId: access.context.officeId,
+        phone: access.context.clientPhone,
+        messageBody,
+        messageType: "quotation_created",
+        projectId,
+        clientId: access.context.clientId,
+        sentBy: user.id,
+      });
+    }
+  }
 
   ok(res, document, 201, "تم إنشاء مستند عرض السعر");
 }));

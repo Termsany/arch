@@ -11,6 +11,7 @@
 - Client portal for approvals and revision requests
 - Project file management with versioning and client visibility controls
 - Reports and analytics dashboards for office admins and super admins
+- WhatsApp notification preparation with simulation mode and optional Cloud API provider wiring
 
 ## Database tables
 
@@ -29,6 +30,8 @@
 - `invoices` — office-scoped manual invoices linked to projects and clients
 - `invoice_items` — invoice line items with calculated totals
 - `payments` — manual payment records linked to invoices, projects, and clients
+- `whatsapp_templates` — office or global WhatsApp message templates
+- `whatsapp_messages` — office-scoped WhatsApp send log with `sent`, `failed`, and `simulated` statuses
 - `offices` — office records
 - `office_settings` — onboarding state per office (`onboarding_completed`)
 - `subscription_plans` — plan catalog
@@ -127,6 +130,18 @@
 
 All report routes support `from_date`, `to_date`, and `office_id` for `super_admin` users only. Office users are always scoped to their own `office_id`.
 
+### WhatsApp
+- `GET /api/whatsapp/status`
+- `GET /api/whatsapp/templates`
+- `GET /api/whatsapp/templates/:id`
+- `POST /api/whatsapp/templates`
+- `PUT /api/whatsapp/templates/:id`
+- `DELETE /api/whatsapp/templates/:id`
+- `PATCH /api/whatsapp/templates/:id/toggle-active`
+- `GET /api/whatsapp/messages`
+- `GET /api/whatsapp/messages/:id`
+- `POST /api/whatsapp/send`
+
 ### Admin — stage approvals
 - `GET /api/projects/:id/approvals`
 
@@ -169,12 +184,19 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
 - Added reports API and `/reports` page with Arabic RTL sections for overview, projects, clients, workflow, finance, tasks, and storage.
 - Added dashboard analytics summary for total invoices, paid amount, outstanding amount, overdue tasks, and storage used.
 - Added `database/migrations/007_reports_indexes.sql` for report performance indexes on clients, projects, stages, BOQ estimates, invoices, payments, tasks, and files.
+- Added WhatsApp preparation with `whatsapp_templates` and `whatsapp_messages`, plus `database/migrations/008_whatsapp.sql`.
+- Added `/whatsapp` settings page with integration status, simulation notice, template management, message log, filters, and manual sending.
+- WhatsApp simulation mode stores messages in the database and logs them without requiring real credentials.
+- Added optional WhatsApp triggers for stages waiting for client approval, client-visible file uploads, quotation generation, and invoice creation.
+- Added project detail WhatsApp actions for portal link, approval request, and general message.
+- Added invoice detail WhatsApp actions for sending invoice text and payment reminders.
 
 ## Frontend pages
 
 - `/start` — public office onboarding and 14-day trial creation
 - `/pricing` — public subscription pricing
-- `/` — admin dashboard
+- `/` — public entry page for office or client login
+- `/dashboard` — admin dashboard
 - `/clients` — client list with portal-account management
 - `/projects` — project list
 - `/projects/:id` — project detail (stages, files, feedback, estimates)
@@ -183,6 +205,7 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
 - `/invoices/:id` — invoice details, items, payments, totals, and printable invoice creation
 - `/projects/:id/invoices/new` — create a new invoice for a project
 - `/reports` — reports and analytics dashboards
+- `/whatsapp` — WhatsApp settings, templates, message log, and manual sending
 - `/documents/:id` — printable Arabic RTL document viewer
 - `/notifications` — in-app notifications list and read controls
 - `/plans` — subscription plan management
@@ -224,6 +247,30 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
    ```bash
    pnpm --filter @workspace/arch-saas run dev
    ```
+
+## WhatsApp setup
+
+Local development defaults to safe simulation mode:
+
+```env
+WHATSAPP_ENABLED=false
+WHATSAPP_PROVIDER=simulation
+WHATSAPP_DEFAULT_COUNTRY_CODE=20
+```
+
+In simulation mode the app creates a row in `whatsapp_messages` with `status = simulated` and writes a backend log entry. No real WhatsApp message is sent, and missing credentials never block the original project, file, quotation, or invoice action.
+
+For a future production Meta WhatsApp Cloud API setup, set:
+
+```env
+WHATSAPP_ENABLED=true
+WHATSAPP_PROVIDER=whatsapp_cloud
+WHATSAPP_PHONE_NUMBER_ID=...
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_BUSINESS_ACCOUNT_ID=...
+```
+
+Keep WhatsApp access tokens only in backend environment variables. Never expose `WHATSAPP_ACCESS_TOKEN` or provider credentials to the frontend.
 
 ## Docker setup
 

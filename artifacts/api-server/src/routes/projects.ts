@@ -28,6 +28,7 @@ const PROJECT_COLS = {
   clientId: projectsTable.clientId,
   officeId: projectsTable.officeId,
   clientName: clientsTable.name,
+  clientPhone: clientsTable.phone,
   projectName: projectsTable.projectName,
   designType: projectsTable.designType,
   areaMeters: projectsTable.areaMeters,

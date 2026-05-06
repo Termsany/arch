@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db, pool } from ".";
@@ -18,6 +18,7 @@ import {
   projectsTable,
   subscriptionPlansTable,
   usersTable,
+  whatsappTemplatesTable,
 } from "./schema";
 
 const passwordHash = "$2b$12$UbxQPhHR.nNqOddA/bq.se4yV4dZ54qlWB84qs4WUcH6yZS5nQCui";
@@ -67,6 +68,38 @@ const boqCategories = [
   { name: "التجهيزات الطبية والتجارية", description: "تجهيز عيادات، محلات، مكاتب، كاونترات، وتجهيزات تشغيل" },
   { name: "النظافة والتسليم", description: "نظافة بعد التشطيب، معالجة ملاحظات، وتسليم نهائي للعميل" },
   { name: "إدارة الموقع والمصاريف غير المباشرة", description: "إشراف، نقل، سقالات، حماية، هالك، ومصاريف تشغيل الموقع" },
+];
+const whatsappTemplates = [
+  {
+    templateKey: "client_approval_request",
+    nameAr: "طلب موافقة العميل",
+    messageBody: 'مرحباً {{client_name}}، برجاء مراجعة المرحلة "{{stage_name}}" الخاصة بمشروع "{{project_name}}" من خلال الرابط التالي: {{portal_link}}',
+  },
+  {
+    templateKey: "client_revision_update",
+    nameAr: "تحديث طلب تعديل",
+    messageBody: 'مرحباً {{client_name}}، تم استلام طلب التعديل الخاص بمشروع "{{project_name}}" وسيقوم الفريق بمراجعته.',
+  },
+  {
+    templateKey: "file_uploaded",
+    nameAr: "ملف جديد",
+    messageBody: 'مرحباً {{client_name}}، تم رفع ملف جديد لمشروع "{{project_name}}". يمكنك مراجعته من بوابة العميل: {{portal_link}}',
+  },
+  {
+    templateKey: "quotation_created",
+    nameAr: "عرض سعر جديد",
+    messageBody: 'مرحباً {{client_name}}، تم إنشاء عرض سعر لمشروع "{{project_name}}". برجاء مراجعته مع فريق المكتب.',
+  },
+  {
+    templateKey: "invoice_created",
+    nameAr: "فاتورة جديدة",
+    messageBody: 'مرحباً {{client_name}}، تم إصدار فاتورة جديدة لمشروع "{{project_name}}" بإجمالي {{total_amount}}.',
+  },
+  {
+    templateKey: "payment_reminder",
+    nameAr: "تذكير بدفعة",
+    messageBody: 'مرحباً {{client_name}}، نذكركم بوجود دفعة مستحقة لمشروع "{{project_name}}" بقيمة {{remaining_amount}}.',
+  },
 ];
 
 async function ensurePlan() {
@@ -234,6 +267,36 @@ async function ensureBoqCategories(officeId: number) {
       name: category.name,
       description: category.description,
       sortOrder: index + 1,
+    });
+  }
+}
+
+async function ensureWhatsappTemplates(officeId: number | null = null) {
+  for (const template of whatsappTemplates) {
+    const existing = await db
+      .select()
+      .from(whatsappTemplatesTable)
+      .where(
+        officeId
+          ? and(eq(whatsappTemplatesTable.officeId, officeId), eq(whatsappTemplatesTable.templateKey, template.templateKey))
+          : and(isNull(whatsappTemplatesTable.officeId), eq(whatsappTemplatesTable.templateKey, template.templateKey)),
+      )
+      .limit(1);
+
+    if (existing[0]) {
+      await db
+        .update(whatsappTemplatesTable)
+        .set({ nameAr: template.nameAr, messageBody: template.messageBody, isActive: true, updatedAt: new Date() })
+        .where(eq(whatsappTemplatesTable.id, existing[0].id));
+      continue;
+    }
+
+    await db.insert(whatsappTemplatesTable).values({
+      officeId,
+      templateKey: template.templateKey,
+      nameAr: template.nameAr,
+      messageBody: template.messageBody,
+      isActive: true,
     });
   }
 }
@@ -751,6 +814,9 @@ async function main() {
   const office2 = await ensureOffice("مكتب التصميم الثاني", "مدير المكتب الثاني", "office2@example.com", plan.id);
   await ensureBoqCategories(office1.id);
   await ensureBoqCategories(office2.id);
+  await ensureWhatsappTemplates(null);
+  await ensureWhatsappTemplates(office1.id);
+  await ensureWhatsappTemplates(office2.id);
   const client = await ensureClient({
     officeId: office1.id,
     name: "أحمد منصور",

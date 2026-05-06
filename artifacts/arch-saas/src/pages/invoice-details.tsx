@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, Printer, Trash2 } from "lucide-react";
+import { MessageCircle, Plus, Printer, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import {
   addInvoiceItem,
@@ -28,6 +28,7 @@ import {
   updateInvoiceStatus,
   type InvoiceDetails,
 } from "@/lib/invoices";
+import { sendWhatsappMessage, type WhatsappMessageType } from "@/lib/whatsapp";
 
 const emptyItem = { itemName: "", description: "", quantity: "1", unitPrice: "0" };
 const emptyPayment = { amount: "", paymentDate: new Date().toISOString().slice(0, 10), paymentMethod: "", referenceNumber: "", notes: "" };
@@ -118,6 +119,26 @@ export default function InvoiceDetailsPage() {
     }
   };
 
+  const sendInvoiceWhatsapp = async (messageType: WhatsappMessageType, messageBody: string) => {
+    if (!invoice?.clientPhone) {
+      toast({ title: "لا يوجد رقم هاتف لهذا العميل", variant: "destructive" });
+      return;
+    }
+    try {
+      await sendWhatsappMessage({
+        phone: invoice.clientPhone,
+        messageBody,
+        messageType,
+        invoiceId: invoice.id,
+        projectId: invoice.projectId,
+        clientId: invoice.clientId,
+      });
+      toast({ title: "تم تسجيل رسالة واتساب" });
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "تعذر إرسال رسالة واتساب", variant: "destructive" });
+    }
+  };
+
   if (loading) return <AppLayout><Skeleton className="h-96 w-full" /></AppLayout>;
   if (!invoice) return <AppLayout><div className="text-center py-16 text-muted-foreground">الفاتورة غير موجودة</div></AppLayout>;
 
@@ -129,8 +150,21 @@ export default function InvoiceDetailsPage() {
             <h1 className="text-3xl font-bold">رقم الفاتورة {invoice.invoiceNumber}</h1>
             <p className="text-muted-foreground mt-1">{invoice.clientName} - {invoice.projectName}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={printInvoice} className="gap-2"><Printer className="w-4 h-4" />طباعة</Button>
+            <Button
+              variant="outline"
+              onClick={() => sendInvoiceWhatsapp("invoice_created", `مرحباً ${invoice.clientName || "عميلنا"}، تم إصدار فاتورة رقم ${invoice.invoiceNumber} لمشروع "${invoice.projectName || "-"}" بإجمالي ${formatAmount(invoice.totalAmount)}.`)}
+              className="gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />إرسال الفاتورة واتساب
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => sendInvoiceWhatsapp("payment_reminder", `مرحباً ${invoice.clientName || "عميلنا"}، نذكركم بوجود مبلغ مستحق بقيمة ${formatAmount(invoice.remainingAmount)} على الفاتورة ${invoice.invoiceNumber}.`)}
+            >
+              إرسال تذكير بالدفع
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild><Button variant="destructive">حذف</Button></AlertDialogTrigger>
               <AlertDialogContent dir="rtl">

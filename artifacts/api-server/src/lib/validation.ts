@@ -184,3 +184,31 @@ export const paymentSchema = z.object({
   referenceNumber: z.string().trim().max(100).optional().nullable(),
   notes: optionalText(2000),
 });
+
+export const whatsappMessageTypes = [
+  "client_approval_request",
+  "client_revision_update",
+  "file_uploaded",
+  "quotation_created",
+  "invoice_created",
+  "payment_reminder",
+  "appointment_reminder",
+  "general",
+] as const;
+
+export const whatsappTemplateSchema = z.object({
+  officeId: optionalInt,
+  templateKey: z.string().trim().min(1).max(100),
+  nameAr: trimString(1, 200),
+  messageBody: trimString(1, 5000),
+  isActive: z.coerce.boolean().optional().default(true),
+});
+
+export const whatsappSendSchema = z.object({
+  phone: z.string().trim().min(5).max(50),
+  messageBody: trimString(1, 5000),
+  messageType: z.enum(whatsappMessageTypes).default("general"),
+  projectId: optionalInt,
+  clientId: optionalInt,
+  invoiceId: optionalInt,
+});

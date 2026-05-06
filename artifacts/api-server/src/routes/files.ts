@@ -3,11 +3,12 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { db } from "@workspace/db";
-import { projectFilesTable, projectsTable, projectStagesTable } from "@workspace/db";
+import { clientsTable, projectFilesTable, projectsTable, projectStagesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { authMiddleware, clientPortalMiddleware, getUser } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
 import { deleteStoredFile, saveUploadedFile, UPLOADS_DIR } from "../lib/storage";
+import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
 
 const MAX_FILE_SIZE_MB = parseInt(process.env["MAX_FILE_SIZE_MB"] || "25", 10);
 
@@ -66,11 +67,46 @@ async function getProjectOfficeId(projectId: number): Promise<number | null> {
 
 async function getProjectNotificationContext(projectId: number) {
   const rows = await db
-    .select({ officeId: projectsTable.officeId, clientId: projectsTable.clientId, projectName: projectsTable.projectName })
+    .select({
+      officeId: projectsTable.officeId,
+      clientId: projectsTable.clientId,
+      projectName: projectsTable.projectName,
+      clientName: clientsTable.name,
+      clientPhone: clientsTable.phone,
+    })
     .from(projectsTable)
+    .leftJoin(clientsTable, eq(projectsTable.clientId, clientsTable.id))
     .where(eq(projectsTable.id, projectId))
     .limit(1);
   return rows[0] ?? null;
+}
+
+async function sendClientVisibleFileWhatsApp(input: {
+  officeId: number | null;
+  clientId: number | null;
+  clientName: string | null;
+  clientPhone: string | null;
+  projectId: number;
+  projectName: string;
+  sentBy: number;
+}) {
+  if (!input.officeId || !input.clientId || !input.clientPhone) return;
+  const frontendUrl = (process.env["FRONTEND_URL"] || "http://localhost:3000").split(",")[0]?.trim() || "http://localhost:3000";
+  const messageBody = await renderWhatsAppTemplateByKey(input.officeId, "file_uploaded", {
+    client_name: input.clientName || "عميلنا",
+    project_name: input.projectName,
+    portal_link: `${frontendUrl}/client/projects/${input.projectId}`,
+  });
+  if (!messageBody) return;
+  await sendWhatsAppMessage({
+    officeId: input.officeId,
+    phone: input.clientPhone,
+    messageBody,
+    messageType: "file_uploaded",
+    projectId: input.projectId,
+    clientId: input.clientId,
+    sentBy: input.sentBy,
+  });
 }
 
 router.get("/uploads/:filename", (req, res) => {
@@ -211,6 +247,15 @@ router.post("/projects/:id/files", authMiddleware, uploadSingleFile, async (req,
           message: `تمت إضافة ملف جديد في مشروع "${project.projectName}": ${req.file.originalname}.`,
           notificationType: "file_visible",
         });
+        await sendClientVisibleFileWhatsApp({
+          officeId: project.officeId,
+          clientId: project.clientId,
+          clientName: project.clientName,
+          clientPhone: project.clientPhone,
+          projectId,
+          projectName: project.projectName,
+          sentBy: user.id,
+        });
       }
     }
 
@@ -334,6 +379,15 @@ router.patch("/files/:fileId/toggle-client-visible", authMiddleware, async (req,
           title: "ملف جديد",
           message: `تمت إتاحة ملف جديد لك في مشروع "${project.projectName}": ${file[0].originalName}.`,
           notificationType: "file_visible",
+        });
+        await sendClientVisibleFileWhatsApp({
+          officeId: project.officeId,
+          clientId: project.clientId,
+          clientName: project.clientName,
+          clientPhone: project.clientPhone,
+          projectId: file[0].projectId,
+          projectName: project.projectName,
+          sentBy: user.id,
         });
       }
     }

@@ -20,6 +20,7 @@ export interface Invoice {
   notes: string | null;
   projectName?: string | null;
   clientName?: string | null;
+  clientPhone?: string | null;
   createdAt: string;
   updatedAt: string;
 }

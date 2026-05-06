@@ -19,6 +19,7 @@ import notificationsRouter from "./notifications";
 import tasksRouter from "./tasks";
 import invoicesRouter from "./invoices";
 import reportsRouter from "./reports";
+import whatsappRouter from "./whatsapp";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use(notificationsRouter);
 router.use(tasksRouter);
 router.use(invoicesRouter);
 router.use(reportsRouter);
+router.use(whatsappRouter);
 
 export default router;

@@ -32,6 +32,7 @@ import { CheckCircle2, Clock, PlayCircle, AlertCircle, MessageSquare, Plus, Tras
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { fetchProjectTasks, updateTaskStatus, type ProjectTask, type TaskStatus } from "@/lib/tasks";
 import { fetchProjectInvoices, formatAmount, STATUS_LABELS as INVOICE_STATUS_LABELS, type Invoice } from "@/lib/invoices";
+import { sendWhatsappMessage } from "@/lib/whatsapp";
 
 interface StageApproval {
   id: number;
@@ -397,6 +398,26 @@ export default function ProjectDetails() {
     }
   };
 
+  const sendProjectWhatsapp = async (messageType: "client_approval_request" | "general", messageBody: string) => {
+    const projectData = project as { clientPhone?: string | null; clientId?: number | null; projectName?: string; clientName?: string | null } | undefined;
+    if (!projectData?.clientPhone) {
+      toast({ title: "لا يوجد رقم هاتف لهذا العميل", variant: "destructive" });
+      return;
+    }
+    try {
+      await sendWhatsappMessage({
+        phone: projectData.clientPhone,
+        messageBody,
+        messageType,
+        projectId,
+        clientId: projectData.clientId ?? null,
+      });
+      toast({ title: "تم تسجيل رسالة واتساب" });
+    } catch (err) {
+      toast({ title: err instanceof Error ? err.message : "تعذر إرسال رسالة واتساب", variant: "destructive" });
+    }
+  };
+
   if (projectLoading) return <div className="p-8"><Skeleton className="h-64 w-full" /></div>;
   if (!project) return <div className="p-8 text-center text-muted-foreground">المشروع غير موجود</div>;
 
@@ -455,6 +476,40 @@ export default function ProjectDetails() {
             <span className="font-medium text-foreground">ملاحظات: </span>{project.notes}
           </div>
         )}
+
+        <Card>
+          <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold">واتساب</h2>
+              <p className="text-sm text-muted-foreground">
+                {(project as { clientPhone?: string | null }).clientPhone ? (project as { clientPhone?: string | null }).clientPhone : "لا يوجد رقم هاتف لهذا العميل"}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendProjectWhatsapp("general", `مرحباً ${(project as { clientName?: string | null }).clientName || "عميلنا"}، يمكنك متابعة مشروع "${project.projectName}" من بوابة العميل.`)}
+              >
+                إرسال رابط بوابة العميل
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendProjectWhatsapp("client_approval_request", `مرحباً ${(project as { clientName?: string | null }).clientName || "عميلنا"}، برجاء مراجعة آخر مرحلة في مشروع "${project.projectName}" من بوابة العميل.`)}
+              >
+                إرسال طلب موافقة
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => sendProjectWhatsapp("general", `مرحباً ${(project as { clientName?: string | null }).clientName || "عميلنا"}، نود مشاركتكم تحديثاً بخصوص مشروع "${project.projectName}".`)}
+              >
+                إرسال رسالة عامة
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Tabs */}
         <Tabs defaultValue="stages">

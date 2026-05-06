@@ -23,6 +23,7 @@
 - Task invalid-id smoke test confirms `/api/tasks/abc`, `/api/tasks/abc/status`, and `/api/projects/abc/tasks` return structured 400 errors.
 - Invoice smoke test creates an invoice, adds items, verifies totals, records payments, verifies partial/paid status, creates a printable invoice document, checks notifications, office isolation, client blocking, and deletion.
 - Reports smoke test opens `/reports`, calls every `/api/reports/*` endpoint, verifies office isolation, verifies client blocking, and checks date filters.
+- WhatsApp smoke test opens `/whatsapp`, verifies simulation mode, sends a manual simulated message, and verifies `whatsapp_messages` contains the row.
 
 ## Office Isolation
 - `super_admin` can see all offices, clients, and projects.
@@ -202,6 +203,32 @@
 - Super admin users see an office filter when offices are available.
 - Reports render empty states instead of crashing when the database has no rows.
 - Dashboard includes report summary values for total invoice value, paid amount, outstanding amount, overdue tasks, and storage used.
+
+## WhatsApp
+- `whatsapp_templates` and `whatsapp_messages` tables exist after migration or Drizzle push.
+- Default templates exist for `client_approval_request`, `client_revision_update`, `file_uploaded`, `quotation_created`, `invoice_created`, and `payment_reminder`.
+- `.env` or `.env.docker` can run with `WHATSAPP_ENABLED=false` and `WHATSAPP_PROVIDER=simulation` without real credentials.
+- `GET /api/whatsapp/status` returns provider, enabled state, and simulation mode.
+- `office_admin` can create, edit, toggle, and delete office WhatsApp templates.
+- Global templates are visible to office users but cannot be deleted by office users.
+- `POST /api/whatsapp/send` creates a `simulated` message when simulation mode is active.
+- `GET /api/whatsapp/messages` returns only messages for the user's office.
+- `super_admin` can view all WhatsApp messages and templates.
+- `project_manager` can send project-related WhatsApp messages.
+- `accountant` can send invoice, payment reminder, and general WhatsApp messages.
+- `designer` cannot send WhatsApp messages or manage templates.
+- Client users cannot access WhatsApp admin APIs.
+- Missing phone numbers do not break project, file, quotation, or invoice workflows.
+- Stage status "في انتظار موافقة العميل" creates a simulated `client_approval_request` message when the client has a phone number.
+- Uploading a file with `client_visible` creates a simulated `file_uploaded` message when the client has a phone number.
+- Toggling a file to `client_visible` creates a simulated `file_uploaded` message when the client has a phone number.
+- Quotation creation creates a simulated `quotation_created` message when the client has a phone number.
+- Invoice creation creates a simulated `invoice_created` message when the client has a phone number.
+- Duplicate protection avoids storing the same message type/body for the same phone and project/client/invoice within a short period.
+- `/whatsapp` shows "حالة التكامل", "وضع التجربة", "قوالب الرسائل", "سجل الرسائل", and "إرسال رسالة".
+- `/projects/:id` shows WhatsApp actions and displays "لا يوجد رقم هاتف لهذا العميل" when the linked client has no phone.
+- `/invoices/:id` shows "إرسال الفاتورة واتساب" and "إرسال تذكير بالدفع".
+- WhatsApp token values are never rendered in the frontend.
 
 ## Billing Limits
 - Inactive subscriptions cannot create new clients or projects.

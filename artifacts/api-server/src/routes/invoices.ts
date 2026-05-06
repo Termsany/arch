@@ -14,6 +14,7 @@ import { authMiddleware, getUser, type AuthUser } from "../lib/auth";
 import { asyncHandler, fail, ok, validateBody } from "../lib/http";
 import { createNotification } from "../lib/notifications";
 import { invoiceCreateSchema, invoiceItemSchema, invoiceStatusSchema, invoiceUpdateSchema, paymentSchema } from "../lib/validation";
+import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
 
 const router = Router();
 
@@ -111,6 +112,7 @@ async function getInvoice(invoiceId: number) {
       updatedAt: invoicesTable.updatedAt,
       projectName: projectsTable.projectName,
       clientName: clientsTable.name,
+      clientPhone: clientsTable.phone,
       officeName: officesTable.officeName,
     })
     .from(invoicesTable)
@@ -331,6 +333,26 @@ router.post("/projects/:id/invoices", validateBody(invoiceCreateSchema), asyncHa
     createdBy: user.id,
   }).returning();
   await notifyOffice(invoice!, "فاتورة جديدة", `تم إنشاء الفاتورة ${invoice!.invoiceNumber}.`, "invoice_created");
+  if (access.context.clientPhone) {
+    const totalAmount = Number(invoice!.totalAmount ?? 0).toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const messageBody = await renderWhatsAppTemplateByKey(access.context.officeId, "invoice_created", {
+      client_name: access.context.clientName,
+      project_name: access.context.projectName,
+      total_amount: totalAmount,
+    });
+    if (messageBody) {
+      await sendWhatsAppMessage({
+        officeId: access.context.officeId,
+        phone: access.context.clientPhone,
+        messageBody,
+        messageType: "invoice_created",
+        projectId,
+        clientId: access.context.clientId,
+        invoiceId: invoice!.id,
+        sentBy: user.id,
+      });
+    }
+  }
   ok(res, await recalculateInvoice(invoice!.id), 201, "تم إنشاء الفاتورة");
 }));
 
