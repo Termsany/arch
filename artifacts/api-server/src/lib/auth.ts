@@ -3,13 +3,11 @@ import type { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { type Request, type Response, type NextFunction } from "express";
 import { fail } from "./http";
+import { getEnv } from "./env";
 
-const JWT_SECRET = process.env["JWT_SECRET"] || "architecture_saas_secret_2024";
-const TOKEN_EXPIRES_IN = (process.env["JWT_EXPIRES_IN"] || "7d") as SignOptions["expiresIn"];
-
-if (process.env["NODE_ENV"] === "production" && !process.env["JWT_SECRET"]) {
-  throw new Error("JWT_SECRET environment variable is required in production.");
-}
+const env = getEnv();
+const JWT_SECRET = env.jwtSecret;
+const TOKEN_EXPIRES_IN = env.jwtExpiresIn as SignOptions["expiresIn"];
 
 export type AuthUser = {
   id: number;

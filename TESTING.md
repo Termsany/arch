@@ -8,6 +8,10 @@
 - Logout clears the token and redirects to the correct login page.
 
 ## This Phase
+- `.env` and `.env.docker` are ignored by Git.
+- `.env.example` exists with placeholder values only.
+- `.env.docker.example` exists with placeholder values only.
+- Docker local still works after creating `.env.docker` from `.env.docker.example`.
 - Backend typecheck passes.
 - Backend production build passes.
 - Frontend typecheck passes.
@@ -24,6 +28,16 @@
 - Invoice smoke test creates an invoice, adds items, verifies totals, records payments, verifies partial/paid status, creates a printable invoice document, checks notifications, office isolation, client blocking, and deletion.
 - Reports smoke test opens `/reports`, calls every `/api/reports/*` endpoint, verifies office isolation, verifies client blocking, and checks date filters.
 - WhatsApp smoke test opens `/whatsapp`, verifies simulation mode, sends a manual simulated message, and verifies `whatsapp_messages` contains the row.
+
+## Secrets And Environment
+- `git status --ignored` shows local `.env.docker` as ignored.
+- `docker-compose.yaml` does not contain real R2, database, JWT, S3, or WhatsApp secrets.
+- Frontend code only uses safe `VITE_` variables.
+- Backend startup validation fails with missing variable names only, without printing secret values.
+- Missing `JWT_SECRET` fails backend startup clearly.
+- Missing `R2_*` vars fails startup when `STORAGE_PROVIDER=r2`.
+- Missing `WHATSAPP_*` vars fails startup when `WHATSAPP_ENABLED=true` and `WHATSAPP_PROVIDER=whatsapp_cloud`.
+- README and `DEPLOYMENT.md` explain safe secret handling and rotation.
 
 ## Office Isolation
 - `super_admin` can see all offices, clients, and projects.

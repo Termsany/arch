@@ -1,15 +1,17 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
 # compiled output
-dist
-tmp
-out-tsc
+dist/
+build/
+.vite/
+tmp/
+out-tsc/
 *.tsbuildinfo
 .expo
 .expo-shared
 
 # dependencies
-node_modules
+node_modules/
 
 # IDEs and editors
 /.idea
@@ -37,6 +39,20 @@ yarn-error.log
 testem.log
 /typings
 
+# environment files
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# local app data
+uploads/
+artifacts/api-server/uploads/
+postgres_data/
+mysql_data/
+data/
+*.log
+
 # System Files
 .DS_Store
 Thumbs.db
@@ -47,5 +63,3 @@ Thumbs.db
 # Replit
 .cache/
 .local/
-.env.docker
-.env.example

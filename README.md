@@ -12,6 +12,7 @@
 - Project file management with versioning and client visibility controls
 - Reports and analytics dashboards for office admins and super admins
 - WhatsApp notification preparation with simulation mode and optional Cloud API provider wiring
+- Safe environment templates and production secret-handling guidance
 
 ## Database tables
 
@@ -276,16 +277,20 @@ Keep WhatsApp access tokens only in backend environment variables. Never expose 
 
 The Docker setup uses PostgreSQL because the current codebase is wired to Drizzle/PostgreSQL through `DATABASE_URL`.
 
-1. Review `.env.docker` and replace `JWT_SECRET` with a strong random value.
-2. Build and start all services:
+1. Create a local Docker env file from the committed template:
+   ```bash
+   cp .env.docker.example .env.docker
+   ```
+2. Replace `JWT_SECRET` with a strong random value and keep local-only secrets in `.env.docker`.
+3. Build and start all services:
    ```bash
    docker compose up --build
    ```
-3. Open the app:
+4. Open the app:
    ```text
    http://localhost:5173
    ```
-4. Backend health check:
+5. Backend health check:
    ```text
    http://localhost:5173/api/healthz
    ```
@@ -336,10 +341,13 @@ The compose stack includes:
 - `JWT_SECRET` — required in production; use a long random value.
 - `JWT_EXPIRES_IN` — JWT lifetime, default `7d`.
 - `FRONTEND_URL` — allowed CORS origin. Use comma-separated URLs for multiple origins.
+- `NODE_ENV` — use `production` in staging and production.
 - `UPLOAD_DIR` — local upload storage path.
 - `MAX_FILE_SIZE_MB` — upload limit in MB.
 - `STORAGE_PROVIDER` — `local` by default. Keep this for development and Docker local uploads.
+- `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_PUBLIC_BASE_URL`, `R2_SIGNED_URL_EXPIRES_SECONDS` — Cloudflare R2 settings. `R2_ENDPOINT` must not include the bucket name.
 - `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_PUBLIC_BASE_URL` — reserved for S3-compatible storage.
+- `WHATSAPP_*` variables stay on the backend only.
 
 ## How to test file management
 
@@ -431,6 +439,33 @@ The compose stack includes:
 - `super_admin` sees all offices; `office_admin` and `team_member` see only their office.
 - Subscription enforcement uses office plan limits for users, projects, clients, storage, and gated features.
 
+## Secrets and Environment Variables
+
+- Never commit `.env`, `.env.docker`, `.env.local`, or production env files.
+- Use `.env.example` as the application template.
+- Use `.env.docker.example` as the Docker local template.
+- Frontend code must only use safe `VITE_` variables such as `VITE_API_URL`.
+- Keep production secrets in your hosting platform, container runtime, or CI secret store, not in Git.
+- Store CI secrets in GitHub Actions Secrets, not in workflow files.
+
+Rotate these immediately if they were ever exposed:
+- `JWT_SECRET`
+- database passwords used by `DATABASE_URL`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `WHATSAPP_ACCESS_TOKEN`
+
+Useful local checks:
+
+```bash
+grep -Rni --exclude-dir=node_modules --exclude-dir=.git "R2_SECRET_ACCESS_KEY\\|WHATSAPP_ACCESS_TOKEN\\|JWT_SECRET\\|DATABASE_URL\\|S3_SECRET_ACCESS_KEY" .
+git status --ignored
+```
+
+GitHub secret scanning and push protection are recommended for this repository.
+
 ## Production notes
 
 - Always set `NODE_ENV=production` and a strong `JWT_SECRET`.
@@ -439,3 +474,4 @@ The compose stack includes:
 - Move uploads to durable object storage before scaling beyond one server; wire the S3 provider implementation behind the existing storage service before switching `STORAGE_PROVIDER`.
 - Keep database backups and test restore procedures.
 - Review `TESTING.md` before each release.
+- Review [DEPLOYMENT.md](/home/mustafa/arch/DEPLOYMENT.md) before promoting to staging or production.

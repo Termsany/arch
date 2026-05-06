@@ -119,7 +119,7 @@ Tables: users (with client_id nullable), subscription_plans, offices, clients, p
 ## Environment Variables
 
 - `DATABASE_URL` — PostgreSQL connection string (auto-provisioned by Replit)
-- `JWT_SECRET` — JWT signing secret (defaults to hardcoded value if not set)
+- `JWT_SECRET` — JWT signing secret
 - `SESSION_SECRET` — Session secret
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
