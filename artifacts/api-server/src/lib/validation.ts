@@ -8,10 +8,18 @@ const optionalEmail = z
   .nullable()
   .transform((value) => value || null);
 const optionalDate = z
-  .union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)])
+  .preprocess((value) => {
+    if (value === "" || value === null) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10);
+    if (typeof value !== "string") return value;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString().slice(0, 10);
+  }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ غير صحيح، استخدم صيغة YYYY-MM-DD"))
   .optional()
-  .nullable()
-  .transform((value) => value || null);
+  .nullable();
 const numeric = z.coerce.number().finite();
 const optionalNumeric = numeric.optional().nullable();
 const optionalInt = z.coerce.number().int().positive().optional().nullable();

@@ -24,9 +24,20 @@ import { Badge } from "@/components/ui/badge";
 const SUBSCRIPTION_STATUSES = [
   { value: "trial", label: "عرض تجريبي", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
   { value: "active", label: "نشط", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300" },
-  { value: "expired", label: "منتهي", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" },
+  { value: "past_due", label: "متأخر", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" },
+  { value: "inactive", label: "غير نشط", color: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300" },
   { value: "cancelled", label: "ملغي", color: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300" }
 ];
+
+function dateOnly(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(dateString: string, days: number): string {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return dateOnly(date);
+}
 
 export default function Offices() {
   const queryClient = useQueryClient();
@@ -45,6 +56,7 @@ export default function Offices() {
     address: "",
     planId: "none",
     subscriptionStatus: "trial",
+    subscriptionStart: dateOnly(new Date()),
     subscriptionEnd: ""
   });
 
@@ -91,6 +103,7 @@ export default function Offices() {
       address: "",
       planId: "none",
       subscriptionStatus: "trial",
+      subscriptionStart: dateOnly(new Date()),
       subscriptionEnd: ""
     });
     setEditingOffice(null);
@@ -106,6 +119,7 @@ export default function Offices() {
       address: office.address || "",
       planId: office.planId ? office.planId.toString() : "none",
       subscriptionStatus: office.subscriptionStatus,
+      subscriptionStart: office.subscriptionStart ? office.subscriptionStart.substring(0, 10) : dateOnly(new Date()),
       subscriptionEnd: office.subscriptionEnd ? office.subscriptionEnd.substring(0, 10) : ""
     });
     setIsDialogOpen(true);
@@ -114,11 +128,18 @@ export default function Offices() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    const subscriptionStart = formData.subscriptionStart || dateOnly(new Date());
+    const subscriptionEnd = formData.subscriptionEnd || (formData.subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : null);
     const payload = {
-      ...formData,
+      officeName: formData.officeName,
+      ownerName: formData.ownerName || null,
+      phone: formData.phone || null,
+      email: formData.email || null,
+      address: formData.address || null,
       planId: formData.planId === "none" ? null : parseInt(formData.planId),
-      subscriptionEnd: formData.subscriptionEnd || null,
-      subscriptionStart: editingOffice && editingOffice.subscriptionStart ? editingOffice.subscriptionStart : new Date().toISOString()
+      subscriptionStatus: formData.subscriptionStatus,
+      subscriptionStart,
+      ...(subscriptionEnd ? { subscriptionEnd } : {})
     };
 
     if (editingOffice) {
@@ -206,6 +227,10 @@ export default function Offices() {
                           {SUBSCRIPTION_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">تاريخ البداية</Label>
+                      <Input type="date" dir="ltr" className="h-9 text-sm" value={formData.subscriptionStart} onChange={e => setFormData({...formData, subscriptionStart: e.target.value})} />
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs">تاريخ الانتهاء</Label>

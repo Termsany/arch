@@ -9,6 +9,16 @@ import { logAudit } from "../lib/audit";
 
 const router = Router();
 
+function toDateString(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function addDays(dateString: string, days: number): string {
+  const date = new Date(`${dateString}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return toDateString(date);
+}
+
 router.get("/offices", authMiddleware, async (req, res) => {
   try {
     const offices = await db
@@ -41,6 +51,9 @@ router.post("/offices", authMiddleware, validateBody(officeSchema), async (req, 
   try {
     const user = getUser(req);
     const body = req.body as Record<string, unknown>;
+    const subscriptionStatus = (body["subscriptionStatus"] as string) || "trial";
+    const subscriptionStart = (body["subscriptionStart"] as string | null) || toDateString(new Date());
+    const subscriptionEnd = (body["subscriptionEnd"] as string | null) || (subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : null);
     const [office] = await db
       .insert(officesTable)
       .values({
@@ -50,9 +63,9 @@ router.post("/offices", authMiddleware, validateBody(officeSchema), async (req, 
         email: (body["email"] as string) || null,
         address: (body["address"] as string) || null,
         planId: body["planId"] ? Number(body["planId"]) : null,
-        subscriptionStatus: (body["subscriptionStatus"] as string) || "trial",
-        subscriptionStart: (body["subscriptionStart"] as string) || null,
-        subscriptionEnd: (body["subscriptionEnd"] as string) || null,
+        subscriptionStatus,
+        subscriptionStart,
+        subscriptionEnd,
       })
       .returning();
     await logAudit({
@@ -111,6 +124,9 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
     const id = Number(req.params["id"]);
     const body = req.body as Record<string, unknown>;
     const existing = await db.select().from(officesTable).where(eq(officesTable.id, id)).limit(1);
+    const subscriptionStatus = (body["subscriptionStatus"] as string) || existing[0]?.subscriptionStatus || "trial";
+    const subscriptionStart = (body["subscriptionStart"] as string | null) || existing[0]?.subscriptionStart || toDateString(new Date());
+    const subscriptionEnd = (body["subscriptionEnd"] as string | null) || (subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : existing[0]?.subscriptionEnd ?? null);
     const [updated] = await db
       .update(officesTable)
       .set({
@@ -120,9 +136,9 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
         email: (body["email"] as string) || null,
         address: (body["address"] as string) || null,
         planId: body["planId"] ? Number(body["planId"]) : null,
-        subscriptionStatus: (body["subscriptionStatus"] as string) || "trial",
-        subscriptionStart: (body["subscriptionStart"] as string) || null,
-        subscriptionEnd: (body["subscriptionEnd"] as string) || null,
+        subscriptionStatus,
+        subscriptionStart,
+        subscriptionEnd,
         updatedAt: new Date(),
       })
       .where(eq(officesTable.id, id))
