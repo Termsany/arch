@@ -14,7 +14,11 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await login({ email, password });
+    try {
+      await login({ email: email.trim(), password });
+    } catch {
+      // The auth hook displays a localized toast for login failures.
+    }
   };
 
   return (

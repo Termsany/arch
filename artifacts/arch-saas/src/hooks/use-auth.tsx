@@ -15,6 +15,39 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+type LoginResponseShape = {
+  token?: unknown;
+  user?: unknown;
+  data?: {
+    token?: unknown;
+    user?: unknown;
+  };
+};
+
+function normalizeLoginResponse(data: unknown): { token: string | null; user: User | null } {
+  const payload = data && typeof data === "object" ? data as LoginResponseShape : {};
+  const nested = payload.data && typeof payload.data === "object" ? payload.data : null;
+  const token = typeof payload.token === "string" ? payload.token : typeof nested?.token === "string" ? nested.token : null;
+  const user = payload.user && typeof payload.user === "object"
+    ? payload.user as User
+    : nested?.user && typeof nested.user === "object"
+      ? nested.user as User
+      : null;
+  return { token, user };
+}
+
+function getLoginErrorMessage(error: unknown): string {
+  const data = (error as { data?: unknown } | null)?.data;
+  if (data && typeof data === "object") {
+    const message = (data as { message?: unknown; error?: unknown }).message ?? (data as { error?: unknown }).error;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  if (error instanceof TypeError) return "تعذر الاتصال بالخادم";
+  const message = (error as { message?: unknown } | null)?.message;
+  if (typeof message === "string" && message.includes("401")) return "البريد الإلكتروني أو كلمة المرور غير صحيحة";
+  return "حدث خطأ أثناء تسجيل الدخول";
+}
+
 function isTokenExpired(token: string | null): boolean {
   if (!token) return false;
   try {
@@ -76,7 +109,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginMutation = useLogin({
     mutation: {
       onSuccess: (data) => {
-        if (data.user.role === "client") {
+        const loginData = normalizeLoginResponse(data);
+        if (!loginData.token || !loginData.user) {
+          if (import.meta.env.DEV) {
+            console.debug("Login response missing token or user", {
+              hasToken: Boolean(loginData.token),
+              hasUser: Boolean(loginData.user),
+            });
+          }
+          toast({ title: "حدث خطأ أثناء تسجيل الدخول", variant: "destructive" });
+          return;
+        }
+        if (loginData.user.role === "client") {
           localStorage.removeItem("token");
           setToken(null);
           queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
@@ -85,24 +129,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         localStorage.removeItem("clientToken");
-        localStorage.setItem("token", data.token);
-        setToken(data.token);
+        localStorage.setItem("token", loginData.token);
+        localStorage.setItem("user", JSON.stringify(loginData.user));
+        setToken(loginData.token);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         toast({ title: "تم تسجيل الدخول بنجاح" });
         setLocation("/dashboard");
       },
-      onError: () => {
-        toast({ title: "بيانات الدخول غير صحيحة", variant: "destructive" });
+      onError: (error) => {
+        toast({ title: getLoginErrorMessage(error), variant: "destructive" });
       },
     },
   });
 
   const login = async (data: LoginBody) => {
-    await loginMutation.mutateAsync({ data });
+    const email = data.email.trim();
+    if (!email || !data.password) {
+      toast({ title: "البريد الإلكتروني وكلمة المرور مطلوبان", variant: "destructive" });
+      return;
+    }
+    if (import.meta.env.DEV) {
+      console.debug("Login submit started", { email, url: "/api/auth/login" });
+    }
+    await loginMutation.mutateAsync({ data: { ...data, email } });
   };
 
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     setToken(null);
     queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
     fetch("/api/auth/logout", { method: "POST" }).catch(() => undefined);

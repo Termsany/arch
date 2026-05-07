@@ -265,6 +265,14 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
 
 For staging and production deployment architecture, environment variables, R2 setup, migrations, backups, rollback, and QA checklists, see [DEPLOYMENT.md](/home/mustafa/arch/DEPLOYMENT.md).
 
+For Vercel frontend + Render backend, set:
+
+```env
+VITE_API_URL=https://arch-tyda.onrender.com/api
+```
+
+Do not add a trailing slash, and redeploy Vercel after changing this value because Vite reads env variables at build time. On Render, set `FRONTEND_URL` to the deployed Vercel frontend origin.
+
 ## WhatsApp setup
 
 Local development defaults to safe simulation mode:

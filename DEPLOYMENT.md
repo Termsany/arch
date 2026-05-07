@@ -114,7 +114,7 @@ Only expose safe `VITE_` variables:
 VITE_API_URL=https://api.yourdomain.com/api
 ```
 
-The frontend reads `VITE_API_URL` at startup. When it is set, requests that start with `/api` or `/uploads` are routed to that backend origin. When it is not set, local Docker and same-origin proxy deployments keep using relative paths.
+The frontend reads `VITE_API_URL` at build/startup. Use the API URL without a trailing slash, for example `https://arch-tyda.onrender.com/api`. When it is set, requests that start with `/api` or `/uploads` are routed to that backend origin. When it is not set, local Docker and same-origin proxy deployments keep using relative paths.
 
 Never expose backend secrets to the frontend:
 
@@ -187,6 +187,8 @@ Security note: if R2 credentials were ever committed or shared, revoke them in C
 Vercel checklist:
 
 - `VITE_API_URL` is set for staging and production.
+- `VITE_API_URL` has no trailing slash, for example `https://arch-tyda.onrender.com/api`.
+- Redeploy the Vercel frontend after changing `VITE_API_URL`; Vite embeds env values at build time.
 - No backend secrets are added to Vercel frontend env.
 - Build command succeeds:
   ```bash
@@ -235,6 +237,7 @@ Render backend checklist:
 - `DATABASE_URL` points to the staging/production database.
 - `JWT_SECRET` is strong and environment-specific.
 - `FRONTEND_URL` matches the deployed frontend URL exactly.
+- For Render backend with Vercel frontend, set `FRONTEND_URL` to the Vercel frontend origin, for example `https://YOUR-VERCEL-FRONTEND.vercel.app`.
 - `STORAGE_PROVIDER=r2` for staging/production file testing.
 - R2 credentials are configured only on the backend service.
 - Health check returns `{ "status": "ok" }`.
