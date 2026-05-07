@@ -83,7 +83,7 @@ app.use(helmet());
 app.use(cors(corsOptions));
 
 // Important: handle preflight before json/routes/rate limit
-app.options("*", cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
