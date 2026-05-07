@@ -7,6 +7,7 @@ import { validateBody } from "../lib/http";
 import { stageUpdateSchema } from "../lib/validation";
 import { createNotification } from "../lib/notifications";
 import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -84,6 +85,21 @@ router.put("/stages/:stageId", authMiddleware, validateBody(stageUpdateSchema), 
       .set({ status, notes, clientFeedback, updatedAt: new Date() })
       .where(eq(projectStagesTable.id, stageId))
       .returning();
+    const auditProject = await db
+      .select({ officeId: projectsTable.officeId })
+      .from(projectsTable)
+      .where(eq(projectsTable.id, stage[0].projectId))
+      .limit(1);
+    await logAudit({
+      office_id: auditProject[0]?.officeId ?? null,
+      user_id: user.id,
+      action: "workflow_stage.update",
+      entity_type: "project_stage",
+      entity_id: stageId,
+      old_value: stage[0],
+      new_value: updated,
+      req,
+    });
 
     if (status === "في انتظار موافقة العميل") {
       const project = await db

@@ -7,6 +7,7 @@ import { getOfficeSubscription } from "../lib/subscription";
 import { validateBody } from "../lib/http";
 import { clientSchema, portalUserSchema } from "../lib/validation";
 import { createNotification } from "../lib/notifications";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -66,6 +67,15 @@ router.post("/clients", authMiddleware, validateBody(clientSchema), async (req, 
       .insert(clientsTable)
       .values({ name, phone, email, address, notes, officeId })
       .returning();
+    await logAudit({
+      office_id: client?.officeId ?? officeId ?? null,
+      user_id: user.id,
+      action: "client.create",
+      entity_type: "client",
+      entity_id: client?.id ?? null,
+      new_value: client,
+      req,
+    });
     res.status(201).json(client);
   } catch (err) {
     req.log.error(err);
@@ -116,6 +126,16 @@ router.put("/clients/:id", authMiddleware, validateBody(clientSchema), async (re
       .set({ name, phone, email, address, notes, updatedAt: new Date() })
       .where(eq(clientsTable.id, id))
       .returning();
+    await logAudit({
+      office_id: existing[0].officeId,
+      user_id: user.id,
+      action: "client.update",
+      entity_type: "client",
+      entity_id: id,
+      old_value: existing[0],
+      new_value: updated,
+      req,
+    });
     res.json(updated);
   } catch (err) {
     req.log.error(err);
@@ -139,6 +159,15 @@ router.delete("/clients/:id", authMiddleware, async (req, res) => {
     }
 
     await db.delete(clientsTable).where(eq(clientsTable.id, id));
+    await logAudit({
+      office_id: existing[0].officeId,
+      user_id: user.id,
+      action: "client.delete",
+      entity_type: "client",
+      entity_id: id,
+      old_value: existing[0],
+      req,
+    });
     res.json({ success: true, message: "تم حذف العميل بنجاح" });
   } catch (err) {
     req.log.error(err);

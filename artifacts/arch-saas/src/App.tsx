@@ -22,6 +22,7 @@ import InvoiceDetailsPage from "./pages/invoice-details";
 import InvoiceFormPage from "./pages/invoice-form";
 import ReportsPage from "./pages/reports";
 import WhatsAppSettingsPage from "./pages/whatsapp";
+import AuditLogsPage from "./pages/audit-logs";
 import Plans from "./pages/plans";
 import Offices from "./pages/offices";
 import BOQLibrary from "./pages/boq-library";
@@ -115,6 +116,9 @@ function Router() {
       </Route>
       <Route path="/whatsapp">
         {() => <ProtectedRoute component={WhatsAppSettingsPage} />}
+      </Route>
+      <Route path="/audit-logs">
+        {() => <ProtectedRoute component={AuditLogsPage} />}
       </Route>
       <Route path="/projects/:id/invoices/new">
         {() => <ProtectedRoute component={InvoiceFormPage} />}

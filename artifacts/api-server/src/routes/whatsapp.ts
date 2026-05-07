@@ -6,6 +6,7 @@ import { authMiddleware, getUser, type AuthUser } from "../lib/auth";
 import { asyncHandler, fail, ok, validateBody } from "../lib/http";
 import { normalizePhoneNumber, sendWhatsAppMessage, WHATSAPP_MESSAGE_TYPES } from "../lib/whatsapp";
 import { whatsappSendSchema, whatsappTemplateSchema } from "../lib/validation";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -182,6 +183,15 @@ router.post("/whatsapp/send", validateBody(whatsappSendSchema), asyncHandler(asy
     clientId: body.clientId ?? context.clientId ?? null,
     invoiceId: body.invoiceId ?? null,
     sentBy: user.id,
+  });
+  await logAudit({
+    office_id: context.officeId,
+    user_id: user.id,
+    action: "whatsapp.send",
+    entity_type: "whatsapp_message",
+    entity_id: message?.id ?? null,
+    new_value: message ?? { phone: body.phone, messageType: body.messageType },
+    req,
   });
   ok(res, message, 201, "تم تسجيل رسالة واتساب");
 }));

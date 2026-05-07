@@ -20,6 +20,7 @@ import tasksRouter from "./tasks";
 import invoicesRouter from "./invoices";
 import reportsRouter from "./reports";
 import whatsappRouter from "./whatsapp";
+import auditLogsRouter from "./audit-logs";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(tasksRouter);
 router.use(invoicesRouter);
 router.use(reportsRouter);
 router.use(whatsappRouter);
+router.use(auditLogsRouter);
 
 export default router;

@@ -13,6 +13,7 @@ import {
 } from "../lib/auth";
 import { asyncHandler, fail, ok, validateBody } from "../lib/http";
 import { changePasswordSchema, loginSchema, resetPasswordSchema } from "../lib/validation";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -36,6 +37,15 @@ router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, r
       role: user.role,
       officeId: user.officeId ?? null,
       clientId: user.clientId ?? null,
+    });
+    await logAudit({
+      office_id: user.officeId,
+      user_id: user.id,
+      action: "user.login",
+      entity_type: "user",
+      entity_id: user.id,
+      new_value: { email: user.email, role: user.role, officeId: user.officeId, clientId: user.clientId },
+      req,
     });
     ok(res, {
       token,

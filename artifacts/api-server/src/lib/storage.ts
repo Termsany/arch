@@ -174,12 +174,11 @@ async function saveCloud(input: SaveFileInput, providerName: "r2" | "s3"): Promi
     Key: storageKey,
     Body: input.buffer,
     ContentType: contentType,
-    ChecksumSHA256: Buffer.from(hash, "hex").toString("base64"),
   }));
   return {
     provider: providerName,
     fileName: path.basename(storageKey),
-    filePath: `/files/download/${encodeURIComponent(storageKey)}`,
+    filePath: `/uploads/${path.basename(storageKey)}`,
     fileUrl: publicFileUrl(config.publicBaseUrl, storageKey),
     storageKey,
     bucketName: config.bucket,

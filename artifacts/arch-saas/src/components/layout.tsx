@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -13,6 +13,7 @@ const ALL_NAV_ITEMS = [
   { href: "/tasks", label: "المهام", icon: ClipboardList, superAdminOnly: false, officeOnly: false },
   { href: "/invoices", label: "الفواتير والمدفوعات", icon: Receipt, superAdminOnly: false, officeOnly: false },
   { href: "/reports", label: "التقارير", icon: BarChart3, superAdminOnly: false, officeOnly: false },
+  { href: "/audit-logs", label: "سجل النشاط / Audit Logs", icon: ScrollText, superAdminOnly: false, officeOnly: false, adminOnly: true },
   { href: "/whatsapp", label: "واتساب", icon: MessageCircle, superAdminOnly: false, officeOnly: false },
   { href: "/boq-library", label: "مكتبة المقايسة", icon: BookOpen, superAdminOnly: false, officeOnly: false },
   { href: "/notifications", label: "الإشعارات", icon: Bell, superAdminOnly: false, officeOnly: false },
@@ -25,11 +26,13 @@ const ALL_NAV_ITEMS = [
 function NavLinks({ onClick }: { onClick?: () => void }) {
   const [location] = useLocation();
   const { logout, user } = useAuth();
-  const isSuperAdmin = (user as { role?: string } | null)?.role === "super_admin";
+  const role = (user as { role?: string } | null)?.role;
+  const isSuperAdmin = role === "super_admin";
 
   const navItems = ALL_NAV_ITEMS.filter(item => {
     if (item.superAdminOnly && !isSuperAdmin) return false;
     if (item.officeOnly && isSuperAdmin) return false;
+    if ("adminOnly" in item && item.adminOnly && !isSuperAdmin && role !== "office_admin") return false;
     return true;
   });
 

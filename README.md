@@ -12,6 +12,7 @@
 - Project file management with versioning and client visibility controls
 - Reports and analytics dashboards for office admins and super admins
 - WhatsApp notification preparation with simulation mode and optional Cloud API provider wiring
+- Audit logs for critical support and security actions with sensitive-field redaction
 - Safe environment templates and production secret-handling guidance
 
 ## Database tables
@@ -33,6 +34,7 @@
 - `payments` — manual payment records linked to invoices, projects, and clients
 - `whatsapp_templates` — office or global WhatsApp message templates
 - `whatsapp_messages` — office-scoped WhatsApp send log with `sent`, `failed`, and `simulated` statuses
+- `audit_logs` — redacted activity records for critical actions such as login, clients, projects, files, invoices, payments, WhatsApp, offices, and plans
 - `offices` — office records
 - `office_settings` — onboarding state per office (`onboarding_completed`)
 - `subscription_plans` — plan catalog
@@ -143,6 +145,11 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
 - `GET /api/whatsapp/messages/:id`
 - `POST /api/whatsapp/send`
 
+### Audit logs
+- `GET /api/audit-logs`
+
+`super_admin` can read all logs and filter by `office_id`. `office_admin` can read only logs for their own office. Other office roles and client users are blocked.
+
 ### Admin — stage approvals
 - `GET /api/projects/:id/approvals`
 
@@ -191,6 +198,10 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
 - Added optional WhatsApp triggers for stages waiting for client approval, client-visible file uploads, quotation generation, and invoice creation.
 - Added project detail WhatsApp actions for portal link, approval request, and general message.
 - Added invoice detail WhatsApp actions for sending invoice text and payment reminders.
+- Added `audit_logs` and `database/migrations/010_audit_logs.sql` for critical activity tracking.
+- Added `/api/audit-logs` with pagination and filters for `office_id`, `user_id`, `action`, `entity_type`, `entity_id`, `from_date`, and `to_date`.
+- Added `/audit-logs` page for `super_admin` and `office_admin`, including old/new value details, IP address, and user agent.
+- Audit logging redacts sensitive fields such as passwords, tokens, secrets, API keys, R2/WhatsApp secrets, and database URLs.
 
 ## Frontend pages
 
@@ -206,6 +217,7 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
 - `/invoices/:id` — invoice details, items, payments, totals, and printable invoice creation
 - `/projects/:id/invoices/new` — create a new invoice for a project
 - `/reports` — reports and analytics dashboards
+- `/audit-logs` — activity log table and details for admin/support review
 - `/whatsapp` — WhatsApp settings, templates, message log, and manual sending
 - `/documents/:id` — printable Arabic RTL document viewer
 - `/notifications` — in-app notifications list and read controls
@@ -248,6 +260,10 @@ All report routes support `from_date`, `to_date`, and `office_id` for `super_adm
    ```bash
    pnpm --filter @workspace/arch-saas run dev
    ```
+
+## Deployment
+
+For staging and production deployment architecture, environment variables, R2 setup, migrations, backups, rollback, and QA checklists, see [DEPLOYMENT.md](/home/mustafa/arch/DEPLOYMENT.md).
 
 ## WhatsApp setup
 
@@ -319,6 +335,7 @@ The compose stack includes:
 - Invoices and manual payments require `database/migrations/005_invoices_payments.sql` or Drizzle push to create `invoice_status`, `invoices`, `invoice_items`, `payments`, their indexes, and add `invoice` to `project_document_type`.
 - Cloud/local file storage metadata requires `database/migrations/006_file_storage_provider.sql` or Drizzle push to add `file_url` and `storage_provider` to `project_files`.
 - Reports performance indexes require `database/migrations/007_reports_indexes.sql` or equivalent database index creation.
+- Audit logs require `database/migrations/010_audit_logs.sql` or Drizzle push to create `audit_logs` and indexes for `office_id`, `user_id`, `entity_type`, `entity_id`, `action`, and `created_at`.
 - The app currently runs on PostgreSQL; `html_content` is stored as `TEXT`, which is PostgreSQL's practical equivalent for the requested long printable HTML content.
 - For an existing dump, import it with your database tool first, then run the app against the imported `DATABASE_URL`.
 - The project currently uses Drizzle/PostgreSQL connection settings through `DATABASE_URL`; the `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` entries in `.env.example` are included for deployment platforms that expose split database variables.
@@ -418,6 +435,20 @@ The compose stack includes:
 5. Log in as `admin@example.com` and confirm the office filter appears and can restrict results by office.
 6. Log in as `client@example.com` and confirm report routes return 403.
 7. Confirm dashboard cards include invoice value, paid amount, outstanding amount, overdue tasks, and storage used.
+
+## How to test audit logs
+
+1. Apply `database/migrations/010_audit_logs.sql` or run Drizzle push.
+2. Log in as `office1admin@example.com`; confirm `user.login` appears in `/audit-logs`.
+3. Create a client; confirm `client.create` includes the new client data.
+4. Update a project; confirm `project.update` includes old and new values.
+5. Upload and delete a project file; confirm `file.upload` and `file.delete`.
+6. Create or update an invoice, then record and delete a payment; confirm `invoice.*` and `payment.*` logs.
+7. Send a simulated WhatsApp message; confirm `whatsapp.send`.
+8. Log in as another office admin and confirm they cannot see the first office logs.
+9. Log in as `admin@example.com` and confirm super admin can see all logs and filter by `office_id`.
+10. Confirm client users cannot access `/api/audit-logs`.
+11. Inspect `old_value` and `new_value` and confirm passwords, tokens, secrets, API keys, R2/WhatsApp secrets, and `DATABASE_URL` are stored as `[REDACTED]`.
 
 ## File upload limits
 

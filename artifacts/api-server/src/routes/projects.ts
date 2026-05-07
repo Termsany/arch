@@ -7,6 +7,7 @@ import { getOfficeSubscription } from "../lib/subscription";
 import { validateBody } from "../lib/http";
 import { projectSchema } from "../lib/validation";
 import { createNotification } from "../lib/notifications";
+import { logAudit } from "../lib/audit";
 
 const DEFAULT_STAGES = [
   "الاتفاق مع العميل وتحديد نوع التصميم",
@@ -124,6 +125,15 @@ router.post("/projects", authMiddleware, validateBody(projectSchema), async (req
         status: "لم تبدأ",
       }))
     );
+    await logAudit({
+      office_id: project?.officeId ?? officeId ?? null,
+      user_id: user.id,
+      action: "project.create",
+      entity_type: "project",
+      entity_id: project?.id ?? null,
+      new_value: project,
+      req,
+    });
 
     res.status(201).json(project);
   } catch (err) {
@@ -164,7 +174,7 @@ router.put("/projects/:id", authMiddleware, validateBody(projectSchema), async (
     const id = Number(req.params["id"]);
 
     const existing = await db
-      .select({ officeId: projectsTable.officeId, projectStatus: projectsTable.projectStatus, projectName: projectsTable.projectName })
+      .select()
       .from(projectsTable)
       .where(eq(projectsTable.id, id))
       .limit(1);
@@ -208,6 +218,16 @@ router.put("/projects/:id", authMiddleware, validateBody(projectSchema), async (
         notificationType: "project_status_change",
       });
     }
+    await logAudit({
+      office_id: existing[0].officeId,
+      user_id: user.id,
+      action: "project.update",
+      entity_type: "project",
+      entity_id: id,
+      old_value: existing[0],
+      new_value: updated,
+      req,
+    });
     res.json(updated);
   } catch (err) {
     req.log.error(err);
@@ -220,7 +240,7 @@ router.delete("/projects/:id", authMiddleware, async (req, res) => {
     const user = getUser(req);
     const id = Number(req.params["id"]);
 
-    const existing = await db.select({ officeId: projectsTable.officeId }).from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
+    const existing = await db.select().from(projectsTable).where(eq(projectsTable.id, id)).limit(1);
     if (!existing[0]) {
       res.status(404).json({ error: "المشروع غير موجود" });
       return;
@@ -231,6 +251,15 @@ router.delete("/projects/:id", authMiddleware, async (req, res) => {
     }
 
     await db.delete(projectsTable).where(eq(projectsTable.id, id));
+    await logAudit({
+      office_id: existing[0].officeId,
+      user_id: user.id,
+      action: "project.delete",
+      entity_type: "project",
+      entity_id: id,
+      old_value: existing[0],
+      req,
+    });
     res.json({ success: true, message: "تم حذف المشروع بنجاح" });
   } catch (err) {
     req.log.error(err);

@@ -2,9 +2,10 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { officesTable, subscriptionPlansTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { authMiddleware } from "../lib/auth";
+import { authMiddleware, getUser } from "../lib/auth";
 import { validateBody } from "../lib/http";
 import { officeSchema } from "../lib/validation";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.get("/offices", authMiddleware, async (req, res) => {
 
 router.post("/offices", authMiddleware, validateBody(officeSchema), async (req, res) => {
   try {
+    const user = getUser(req);
     const body = req.body as Record<string, unknown>;
     const [office] = await db
       .insert(officesTable)
@@ -53,6 +55,15 @@ router.post("/offices", authMiddleware, validateBody(officeSchema), async (req, 
         subscriptionEnd: (body["subscriptionEnd"] as string) || null,
       })
       .returning();
+    await logAudit({
+      office_id: office?.id ?? null,
+      user_id: user.id,
+      action: "office.create",
+      entity_type: "office",
+      entity_id: office?.id ?? null,
+      new_value: office,
+      req,
+    });
     res.status(201).json(office);
   } catch (err) {
     req.log.error(err);
@@ -96,8 +107,10 @@ router.get("/offices/:id", authMiddleware, async (req, res) => {
 
 router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (req, res) => {
   try {
+    const user = getUser(req);
     const id = Number(req.params["id"]);
     const body = req.body as Record<string, unknown>;
+    const existing = await db.select().from(officesTable).where(eq(officesTable.id, id)).limit(1);
     const [updated] = await db
       .update(officesTable)
       .set({
@@ -118,6 +131,16 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
       res.status(404).json({ error: "المكتب غير موجود" });
       return;
     }
+    await logAudit({
+      office_id: id,
+      user_id: user.id,
+      action: "office.update",
+      entity_type: "office",
+      entity_id: id,
+      old_value: existing[0] ?? null,
+      new_value: updated,
+      req,
+    });
     res.json(updated);
   } catch (err) {
     req.log.error(err);
@@ -127,8 +150,19 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
 
 router.delete("/offices/:id", authMiddleware, async (req, res) => {
   try {
+    const user = getUser(req);
     const id = Number(req.params["id"]);
+    const existing = await db.select().from(officesTable).where(eq(officesTable.id, id)).limit(1);
     await db.delete(officesTable).where(eq(officesTable.id, id));
+    await logAudit({
+      office_id: id,
+      user_id: user.id,
+      action: "office.delete",
+      entity_type: "office",
+      entity_id: id,
+      old_value: existing[0] ?? null,
+      req,
+    });
     res.json({ success: true, message: "تم حذف المكتب بنجاح" });
   } catch (err) {
     req.log.error(err);

@@ -9,6 +9,7 @@ import { authMiddleware, clientPortalMiddleware, getUser } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
 import { deleteStoredFile, saveUploadedFile, UPLOADS_DIR } from "../lib/storage";
 import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
+import { logAudit } from "../lib/audit";
 
 const MAX_FILE_SIZE_MB = parseInt(process.env["MAX_FILE_SIZE_MB"] || "25", 10);
 
@@ -215,6 +216,8 @@ router.post("/projects/:id/files", authMiddleware, uploadSingleFile, async (req,
       buffer: req.file.buffer,
       originalName: req.file.originalname,
       mimeType: req.file.mimetype,
+      officeId,
+      projectId,
     });
 
     const [inserted] = await db.insert(projectFilesTable).values({
@@ -227,6 +230,10 @@ router.post("/projects/:id/files", authMiddleware, uploadSingleFile, async (req,
       filePath: stored.filePath,
       fileUrl: stored.fileUrl,
       storageProvider: stored.provider,
+      storageKey: stored.storageKey,
+      bucketName: stored.bucketName,
+      contentType: stored.contentType,
+      checksum: stored.checksum,
       fileType: req.file.mimetype || path.extname(req.file.originalname).slice(1),
       fileSize: req.file.size,
       versionNumber: nextVersion,
@@ -235,6 +242,15 @@ router.post("/projects/:id/files", authMiddleware, uploadSingleFile, async (req,
       notes: notes || null,
       isApprovedVersion: false,
     }).returning();
+    await logAudit({
+      office_id: inserted?.officeId ?? officeId,
+      user_id: user.id,
+      action: "file.upload",
+      entity_type: "project_file",
+      entity_id: inserted?.id ?? null,
+      new_value: inserted,
+      req,
+    });
 
     if (vis === "client_visible") {
       const project = await getProjectNotificationContext(projectId);
@@ -312,8 +328,19 @@ router.delete("/files/:fileId", authMiddleware, async (req, res) => {
       provider: file[0].storageProvider,
       fileName: file[0].fileName,
       filePath: file[0].filePath,
+      storageKey: file[0].storageKey,
+      bucketName: file[0].bucketName,
     });
     await db.delete(projectFilesTable).where(eq(projectFilesTable.id, fileId));
+    await logAudit({
+      office_id: file[0].officeId,
+      user_id: user.id,
+      action: "file.delete",
+      entity_type: "project_file",
+      entity_id: fileId,
+      old_value: file[0],
+      req,
+    });
     res.json({ success: true });
   } catch (err) {
     req.log.error(err);

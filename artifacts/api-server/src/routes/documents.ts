@@ -18,6 +18,7 @@ import { asyncHandler, fail, ok } from "../lib/http";
 import { requireActiveSubscription } from "../lib/subscription";
 import { createNotification } from "../lib/notifications";
 import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -428,6 +429,15 @@ router.post("/projects/:id/documents/quotation", authMiddleware, asyncHandler(as
     title: "تم إنشاء عرض سعر",
     message: `تم إنشاء عرض سعر لمشروع "${access.context.projectName}".`,
     notificationType: "quotation_generated",
+  });
+  await logAudit({
+    office_id: access.context.officeId,
+    user_id: user.id,
+    action: "quotation.create",
+    entity_type: "project_document",
+    entity_id: document?.id ?? null,
+    new_value: document,
+    req,
   });
 
   if (access.context.clientPhone) {

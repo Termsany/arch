@@ -10,6 +10,7 @@ import {
 import { eq, and, sql } from "drizzle-orm";
 import { clientPortalMiddleware, getUser } from "../lib/auth";
 import { createNotification } from "../lib/notifications";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -217,6 +218,15 @@ router.post("/client-portal/stages/:stageId/approve", clientPortalMiddleware, as
         message: `وافق العميل على مرحلة "${stage[0].stageName}" في مشروع "${project.projectName}".`,
         notificationType: "client_approval",
       });
+      await logAudit({
+        office_id: project.officeId,
+        user_id: user.id,
+        action: "client.stage.approve",
+        entity_type: "stage_approval",
+        entity_id: stageId,
+        new_value: { projectId: stage[0].projectId, stageId, clientId: user.clientId, comment },
+        req,
+      });
     }
 
     res.json({ success: true, message: "تمت الموافقة على المرحلة بنجاح" });
@@ -297,6 +307,15 @@ router.post("/client-portal/stages/:stageId/request-revision", clientPortalMiddl
         title: "طلب تعديل",
         message: `طلب العميل تعديل مرحلة "${stage[0].stageName}" في مشروع "${project.projectName}".`,
         notificationType: "revision_request",
+      });
+      await logAudit({
+        office_id: project.officeId,
+        user_id: user.id,
+        action: "client.stage.revision_request",
+        entity_type: "stage_approval",
+        entity_id: stageId,
+        new_value: { projectId: stage[0].projectId, stageId, clientId: user.clientId, comment },
+        req,
       });
     }
 

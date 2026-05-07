@@ -15,6 +15,7 @@ import { asyncHandler, fail, ok, validateBody } from "../lib/http";
 import { createNotification } from "../lib/notifications";
 import { invoiceCreateSchema, invoiceItemSchema, invoiceStatusSchema, invoiceUpdateSchema, paymentSchema } from "../lib/validation";
 import { renderWhatsAppTemplateByKey, sendWhatsAppMessage } from "../lib/whatsapp";
+import { logAudit } from "../lib/audit";
 
 const router = Router();
 
@@ -353,7 +354,17 @@ router.post("/projects/:id/invoices", validateBody(invoiceCreateSchema), asyncHa
       });
     }
   }
-  ok(res, await recalculateInvoice(invoice!.id), 201, "تم إنشاء الفاتورة");
+  const recalculated = await recalculateInvoice(invoice!.id);
+  await logAudit({
+    office_id: invoice?.officeId ?? null,
+    user_id: user.id,
+    action: "invoice.create",
+    entity_type: "invoice",
+    entity_id: invoice?.id ?? null,
+    new_value: recalculated ?? invoice,
+    req,
+  });
+  ok(res, recalculated, 201, "تم إنشاء الفاتورة");
 }));
 
 router.put("/invoices/:id", validateBody(invoiceUpdateSchema), asyncHandler(async (req, res) => {
@@ -373,7 +384,18 @@ router.put("/invoices/:id", validateBody(invoiceUpdateSchema), asyncHandler(asyn
     notes: body.notes !== undefined ? body.notes : access.invoice.notes,
     updatedAt: new Date(),
   }).where(eq(invoicesTable.id, id));
-  ok(res, await recalculateInvoice(id), 200, "تم تحديث الفاتورة");
+  const recalculated = await recalculateInvoice(id);
+  await logAudit({
+    office_id: access.invoice.officeId,
+    user_id: user.id,
+    action: "invoice.update",
+    entity_type: "invoice",
+    entity_id: id,
+    old_value: access.invoice,
+    new_value: recalculated,
+    req,
+  });
+  ok(res, recalculated, 200, "تم تحديث الفاتورة");
 }));
 
 router.patch("/invoices/:id/status", validateBody(invoiceStatusSchema), asyncHandler(async (req, res) => {
@@ -385,7 +407,18 @@ router.patch("/invoices/:id/status", validateBody(invoiceStatusSchema), asyncHan
   if (!access.invoice) return fail(res, access.status, access.message);
   const { status } = req.body as { status: "draft" | "sent" | "cancelled" };
   await db.update(invoicesTable).set({ status, updatedAt: new Date() }).where(eq(invoicesTable.id, id));
-  ok(res, await recalculateInvoice(id), 200, "تم تحديث حالة الفاتورة");
+  const recalculated = await recalculateInvoice(id);
+  await logAudit({
+    office_id: access.invoice.officeId,
+    user_id: user.id,
+    action: "invoice.status_update",
+    entity_type: "invoice",
+    entity_id: id,
+    old_value: access.invoice,
+    new_value: recalculated,
+    req,
+  });
+  ok(res, recalculated, 200, "تم تحديث حالة الفاتورة");
 }));
 
 router.delete("/invoices/:id", asyncHandler(async (req, res) => {
@@ -396,6 +429,15 @@ router.delete("/invoices/:id", asyncHandler(async (req, res) => {
   const access = await requireInvoiceAccess(id, user);
   if (!access.invoice) return fail(res, access.status, access.message);
   await db.delete(invoicesTable).where(eq(invoicesTable.id, id));
+  await logAudit({
+    office_id: access.invoice.officeId,
+    user_id: user.id,
+    action: "invoice.delete",
+    entity_type: "invoice",
+    entity_id: id,
+    old_value: access.invoice,
+    req,
+  });
   ok(res, { id }, 200, "تم حذف الفاتورة");
 }));
 
@@ -473,7 +515,7 @@ router.post("/invoices/:id/payments", validateBody(paymentSchema), asyncHandler(
   const access = await requireInvoiceAccess(id, user);
   if (!access.invoice) return fail(res, access.status, access.message);
   const body = req.body as { amount: number; paymentDate?: string | null; paymentMethod?: string | null; referenceNumber?: string | null; notes?: string | null };
-  await db.insert(paymentsTable).values({
+  const [payment] = await db.insert(paymentsTable).values({
     officeId: access.invoice.officeId,
     invoiceId: id,
     projectId: access.invoice.projectId,
@@ -484,9 +526,19 @@ router.post("/invoices/:id/payments", validateBody(paymentSchema), asyncHandler(
     referenceNumber: body.referenceNumber ?? null,
     notes: body.notes ?? null,
     createdBy: user.id,
-  });
+  }).returning();
   await notifyOffice(access.invoice, "تم تسجيل دفعة", `تم تسجيل دفعة على الفاتورة ${access.invoice.invoiceNumber}.`, "payment_recorded");
-  ok(res, await recalculateInvoice(id), 201, "تم تسجيل الدفعة");
+  const recalculated = await recalculateInvoice(id);
+  await logAudit({
+    office_id: access.invoice.officeId,
+    user_id: user.id,
+    action: "payment.create",
+    entity_type: "payment",
+    entity_id: payment?.id ?? null,
+    new_value: payment,
+    req,
+  });
+  ok(res, recalculated, 201, "تم تسجيل الدفعة");
 }));
 
 router.delete("/payments/:id", asyncHandler(async (req, res) => {
@@ -500,7 +552,17 @@ router.delete("/payments/:id", asyncHandler(async (req, res) => {
   const access = await requireInvoiceAccess(payment.invoiceId, user);
   if (!access.invoice) return fail(res, access.status, access.message);
   await db.delete(paymentsTable).where(eq(paymentsTable.id, id));
-  ok(res, await recalculateInvoice(payment.invoiceId), 200, "تم حذف الدفعة");
+  const recalculated = await recalculateInvoice(payment.invoiceId);
+  await logAudit({
+    office_id: payment.officeId,
+    user_id: user.id,
+    action: "payment.delete",
+    entity_type: "payment",
+    entity_id: id,
+    old_value: payment,
+    req,
+  });
+  ok(res, recalculated, 200, "تم حذف الدفعة");
 }));
 
 router.post("/invoices/:id/document", asyncHandler(async (req, res) => {

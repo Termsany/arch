@@ -28,6 +28,7 @@
 - Invoice smoke test creates an invoice, adds items, verifies totals, records payments, verifies partial/paid status, creates a printable invoice document, checks notifications, office isolation, client blocking, and deletion.
 - Reports smoke test opens `/reports`, calls every `/api/reports/*` endpoint, verifies office isolation, verifies client blocking, and checks date filters.
 - WhatsApp smoke test opens `/whatsapp`, verifies simulation mode, sends a manual simulated message, and verifies `whatsapp_messages` contains the row.
+- Audit logs smoke test logs in, creates a client, updates a project, uploads/deletes a file, records a payment, sends a simulated WhatsApp message, and verifies `/audit-logs` shows redacted office-scoped activity.
 
 ## Secrets And Environment
 - `git status --ignored` shows local `.env.docker` as ignored.
@@ -45,8 +46,10 @@
 - Office users cannot open another office's clients, projects, files, stages, estimates, or feedback by URL.
 - Office users cannot open another office's generated documents by URL.
 - Office users cannot see another office's notifications.
+- Office admins cannot see another office's audit logs.
 - Client users cannot access admin routes.
 - Client users cannot access report routes.
+- Client users cannot access audit log routes.
 
 ## Clients CRUD
 - Create a client with valid name and optional contact data.
@@ -243,6 +246,31 @@
 - `/projects/:id` shows WhatsApp actions and displays "لا يوجد رقم هاتف لهذا العميل" when the linked client has no phone.
 - `/invoices/:id` shows "إرسال الفاتورة واتساب" and "إرسال تذكير بالدفع".
 - WhatsApp token values are never rendered in the frontend.
+
+## Audit Logs
+- `audit_logs` table exists after `database/migrations/010_audit_logs.sql` or Drizzle push.
+- Audit log indexes exist for `office_id`, `user_id`, `entity_type`, `entity_id`, `action`, and `created_at`.
+- `GET /api/audit-logs` requires an admin token.
+- `office_admin` sees only records with their own `office_id`.
+- `super_admin` can see all records and can filter by `office_id`.
+- `project_manager`, `designer`, `accountant`, and client users receive 403 for `/api/audit-logs`.
+- Filters work for `user_id`, `action`, `entity_type`, `entity_id`, `from_date`, `to_date`, `page`, and `limit`.
+- Login creates a `user.login` audit log without storing the JWT token or password.
+- Creating, updating, and deleting a client creates `client.create`, `client.update`, and `client.delete`.
+- Creating, updating, and deleting a project creates `project.create`, `project.update`, and `project.delete`.
+- Updating a workflow stage creates `workflow_stage.update`.
+- Client approval creates `client.stage.approve`.
+- Client revision request creates `client.stage.revision_request`.
+- Uploading and deleting a file creates `file.upload` and `file.delete`.
+- Creating a quotation creates `quotation.create`.
+- Creating, updating, changing status, and deleting an invoice creates `invoice.create`, `invoice.update`, `invoice.status_update`, and `invoice.delete`.
+- Recording and deleting a payment creates `payment.create` and `payment.delete`.
+- Sending a simulated WhatsApp message creates `whatsapp.send`.
+- Creating, updating, and deleting offices creates `office.create`, `office.update`, and `office.delete`.
+- Creating, updating, toggling status, recommending, and deleting plans creates `subscription_plan.*` audit logs.
+- Sensitive fields are redacted as `[REDACTED]`, including `password`, `password_hash`, `token`, `access_token`, `secret`, `jwt`, `api_key`, `R2_SECRET_ACCESS_KEY`, `WHATSAPP_ACCESS_TOKEN`, and `DATABASE_URL`.
+- `/audit-logs` shows "سجل النشاط / Audit Logs" in the sidebar for `super_admin` and `office_admin`.
+- `/audit-logs` displays action, entity type, user, office, date, details, old value, new value, IP address, and user agent.
 
 ## Billing Limits
 - Inactive subscriptions cannot create new clients or projects.
