@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
@@ -13,6 +14,7 @@ import { fail, validateBody } from "../lib/http";
 import { officeSchema } from "../lib/validation";
 import { logAudit } from "../lib/audit";
 import { DEFAULT_BOQ_CATEGORIES } from "../lib/defaults";
+import { createInviteToken } from "../lib/invites";
 
 const router = Router();
 
@@ -24,6 +26,10 @@ function addDays(dateString: string, days: number): string {
   const date = new Date(`${dateString}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return toDateString(date);
+}
+
+function normalizeEmail(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
 router.get("/offices", authMiddleware, async (req, res) => {
@@ -66,9 +72,8 @@ router.post("/offices", authMiddleware, async (req, res) => {
     }
 
     const body = result.data as Record<string, unknown>;
-    const adminEmail = typeof body["email"] === "string" ? body["email"].trim() : "";
+    const adminEmail = normalizeEmail(body["email"]);
     const adminName = typeof body["ownerName"] === "string" ? body["ownerName"].trim() : "";
-    const adminPassword = typeof rawBody["password"] === "string" ? rawBody["password"] : "";
 
     if (!adminName) {
       fail(res, 400, "اسم المالك / المدير مطلوب لإنشاء حساب مدير المكتب");
@@ -77,11 +82,6 @@ router.post("/offices", authMiddleware, async (req, res) => {
 
     if (!adminEmail) {
       fail(res, 400, "البريد الإلكتروني مطلوب لإنشاء حساب مدير المكتب");
-      return;
-    }
-
-    if (adminPassword.length < 8) {
-      fail(res, 400, "كلمة المرور يجب أن تكون 8 أحرف على الأقل");
       return;
     }
 
@@ -100,7 +100,8 @@ router.post("/offices", authMiddleware, async (req, res) => {
     const subscriptionStatus = (body["subscriptionStatus"] as string) || "trial";
     const subscriptionStart = (body["subscriptionStart"] as string | null) || toDateString(new Date());
     const subscriptionEnd = (body["subscriptionEnd"] as string | null) || (subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : null);
-    const passwordHash = await hashPassword(adminPassword);
+    const invite = createInviteToken();
+    const temporaryPasswordHash = await hashPassword(randomBytes(32).toString("base64url"));
 
     const created = await db.transaction(async (tx) => {
       const [office] = await tx
@@ -123,8 +124,11 @@ router.post("/offices", authMiddleware, async (req, res) => {
         .values({
           name: adminName,
           email: adminEmail,
-          passwordHash,
+          passwordHash: temporaryPasswordHash,
           role: "office_admin",
+          status: "pending_invite",
+          inviteTokenHash: invite.tokenHash,
+          inviteExpiresAt: invite.expiresAt,
           officeId: office!.id,
         })
         .returning({
@@ -133,6 +137,8 @@ router.post("/offices", authMiddleware, async (req, res) => {
           email: usersTable.email,
           role: usersTable.role,
           officeId: usersTable.officeId,
+          status: usersTable.status,
+          inviteExpiresAt: usersTable.inviteExpiresAt,
         });
 
       await tx.insert(officeSettingsTable).values({
@@ -155,14 +161,19 @@ router.post("/offices", authMiddleware, async (req, res) => {
     await logAudit({
       office_id: created.office.id,
       user_id: user.id,
-      action: "office.create",
+      action: "office.create_invite",
       entity_type: "office",
       entity_id: created.office.id,
-      new_value: { office: created.office, officeAdmin: created.officeAdmin },
+      new_value: { office: created.office, officeAdmin: created.officeAdmin, inviteExpiresAt: invite.expiresAt },
       req,
     });
 
-    res.status(201).json(created.office);
+    res.status(201).json({
+      office: created.office,
+      officeAdmin: created.officeAdmin,
+      inviteUrl: invite.inviteUrl,
+      inviteExpiresAt: invite.expiresAt,
+    });
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
@@ -203,6 +214,62 @@ router.get("/offices/:id", authMiddleware, async (req, res) => {
   }
 });
 
+router.post("/offices/:id/regenerate-invite", authMiddleware, async (req, res) => {
+  try {
+    const user = getUser(req);
+    const id = Number(req.params["id"]);
+    const officeUsers = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.officeId, id));
+    const officeAdmin = officeUsers.find((row) => row.role === "office_admin");
+
+    if (!officeAdmin) {
+      fail(res, 404, "لم يتم العثور على مدير المكتب");
+      return;
+    }
+
+    if (user.role !== "super_admin" && user.officeId !== id) {
+      fail(res, 403, "ليس لديك صلاحية لتنفيذ هذا الإجراء");
+      return;
+    }
+
+    const invite = createInviteToken();
+    const [updated] = await db
+      .update(usersTable)
+      .set({
+        status: "pending_invite",
+        inviteTokenHash: invite.tokenHash,
+        inviteExpiresAt: invite.expiresAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(usersTable.id, officeAdmin.id))
+      .returning({
+        id: usersTable.id,
+        email: usersTable.email,
+        role: usersTable.role,
+        officeId: usersTable.officeId,
+        status: usersTable.status,
+        inviteExpiresAt: usersTable.inviteExpiresAt,
+      });
+
+    await logAudit({
+      office_id: id,
+      user_id: user.id,
+      action: "office.regenerate_invite",
+      entity_type: "user",
+      entity_id: updated?.id ?? officeAdmin.id,
+      new_value: { email: updated?.email, inviteExpiresAt: invite.expiresAt },
+      req,
+    });
+
+    res.json({ user: updated, inviteUrl: invite.inviteUrl, inviteExpiresAt: invite.expiresAt });
+  } catch (err) {
+    req.log.error(err);
+    res.status(500).json({ error: "حدث خطأ في الخادم" });
+  }
+});
+
 router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (req, res) => {
   try {
     const user = getUser(req);
@@ -218,7 +285,7 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
         officeName: body["officeName"] as string,
         ownerName: (body["ownerName"] as string) || null,
         phone: (body["phone"] as string) || null,
-        email: (body["email"] as string) || null,
+        email: normalizeEmail(body["email"]) || null,
         address: (body["address"] as string) || null,
         planId: body["planId"] ? Number(body["planId"]) : null,
         subscriptionStatus,
