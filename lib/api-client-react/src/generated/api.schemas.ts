@@ -250,6 +250,7 @@ export interface CreateOfficeBody {
   ownerName?: string | null;
   phone?: string | null;
   email?: string | null;
+  password?: string;
   address?: string | null;
   planId?: number | null;
   subscriptionStatus: string;
