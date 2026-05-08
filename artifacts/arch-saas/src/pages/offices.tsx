@@ -19,14 +19,16 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Edit2, Trash2, Search, Building2, Copy } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
 
 const SUBSCRIPTION_STATUSES = [
-  { value: "trial", label: "عرض تجريبي", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
-  { value: "active", label: "نشط", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300" },
-  { value: "past_due", label: "متأخر", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" },
-  { value: "inactive", label: "غير نشط", color: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300" },
-  { value: "cancelled", label: "ملغي", color: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300" }
-];
+  { value: "trial", labelKey: "status.trial", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
+  { value: "active", labelKey: "status.active", color: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-300" },
+  { value: "past_due", labelKey: "status.past_due", color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300" },
+  { value: "inactive", labelKey: "status.inactive", color: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300" },
+  { value: "cancelled", labelKey: "status.cancelled", color: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300" }
+] satisfies Array<{ value: string; labelKey: TranslationKey; color: string }>;
 
 type CreateOfficeInviteResponse = {
   office?: unknown;
@@ -60,6 +62,7 @@ function getErrorMessage(error: unknown): string {
 
 export default function Offices() {
   const queryClient = useQueryClient();
+  const { direction, t, formatDate } = useTranslation();
   const { data: offices, isLoading } = useGetOffices();
   const { data: plans } = useGetActivePlans();
   
@@ -86,7 +89,7 @@ export default function Offices() {
       onSuccess: (data) => {
         const response = data as CreateOfficeInviteResponse;
         queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
-        toast({ title: "تم إنشاء المكتب وإنشاء رابط الدعوة" });
+        toast({ title: t("toast.inviteCreated") });
         setIsDialogOpen(false);
         resetForm();
         setLatestInvite(response);
@@ -94,7 +97,7 @@ export default function Offices() {
           setIsInviteDialogOpen(true);
         }
       },
-      onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
+      onError: (error) => toast({ title: getErrorMessage(error) || t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -102,11 +105,11 @@ export default function Offices() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
+      onError: (error) => toast({ title: getErrorMessage(error) || t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -114,9 +117,9 @@ export default function Offices() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
-        toast({ title: "تم الحذف بنجاح" });
+        toast({ title: t("toast.deleted") });
       },
-      onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
+      onError: (error) => toast({ title: getErrorMessage(error) || t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -138,7 +141,7 @@ export default function Offices() {
   const copyInviteLink = async () => {
     if (!latestInvite?.inviteUrl) return;
     await navigator.clipboard.writeText(latestInvite.inviteUrl);
-    toast({ title: "تم نسخ رابط الدعوة" });
+    toast({ title: t("toast.inviteCopied") });
   };
 
   const handleEdit = (office: any) => {
@@ -189,16 +192,16 @@ export default function Offices() {
   const getStatusBadge = (status: string) => {
     const s = SUBSCRIPTION_STATUSES.find(x => x.value === status);
     if (!s) return null;
-    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${s.color}`}>{s.label}</span>;
+    return <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${s.color}`}>{t(s.labelKey)}</span>;
   };
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" dir={direction}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">المكاتب المشتركة</h1>
-            <p className="text-muted-foreground mt-1">إدارة مكاتب التصميم المشتركة في المنصة</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("offices.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("offices.subtitle")}</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -208,70 +211,70 @@ export default function Offices() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
-                إضافة مكتب
+                {t("offices.add")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]" dir="rtl">
+            <DialogContent className="sm:max-w-[600px]" dir={direction}>
               <DialogHeader>
-                <DialogTitle>{editingOffice ? "تعديل بيانات المكتب" : "إضافة مكتب جديد"}</DialogTitle>
+                <DialogTitle>{editingOffice ? t("offices.edit") : t("offices.create")}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="officeName">اسم المكتب *</Label>
+                    <Label htmlFor="officeName">{t("offices.officeName")} *</Label>
                     <Input required value={formData.officeName} onChange={e => setFormData({...formData, officeName: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="ownerName">اسم المالك / المدير *</Label>
+                    <Label htmlFor="ownerName">{t("offices.ownerName")} *</Label>
                     <Input required value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">رقم الهاتف</Label>
+                    <Label htmlFor="phone">{t("offices.phone")}</Label>
                     <Input dir="ltr" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">البريد الإلكتروني *</Label>
+                    <Label htmlFor="email">{t("offices.email")} *</Label>
                     <Input required type="email" dir="ltr" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
 
                 {!editingOffice && (
                   <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">
-                    سيتم إنشاء حساب مدير المكتب وإصدار رابط دعوة آمن لتعيين كلمة المرور.
+                    {t("offices.inviteNotice")}
                   </div>
                 )}
 
                 <div className="space-y-2">
-                  <Label>تفاصيل الاشتراك</Label>
+                  <Label>{t("offices.subscriptionDetails")}</Label>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/50 p-4 rounded-lg border border-border">
                     <div className="space-y-2">
-                      <Label className="text-xs">الخطة</Label>
+                      <Label className="text-xs">{t("offices.plan")}</Label>
                       <Select value={formData.planId} onValueChange={v => setFormData({...formData, planId: v})}>
-                        <SelectTrigger className="h-9"><SelectValue placeholder="بدون خطة" /></SelectTrigger>
-                        <SelectContent dir="rtl">
-                          <SelectItem value="none">بدون خطة</SelectItem>
+                        <SelectTrigger className="h-9"><SelectValue placeholder={t("offices.noPlan")} /></SelectTrigger>
+                        <SelectContent dir={direction}>
+                          <SelectItem value="none">{t("offices.noPlan")}</SelectItem>
                           {plans?.map(p => <SelectItem key={p.id} value={p.id.toString()}>{p.nameAr}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">حالة الاشتراك</Label>
+                      <Label className="text-xs">{t("offices.subscriptionStatus")}</Label>
                       <Select value={formData.subscriptionStatus} onValueChange={v => setFormData({...formData, subscriptionStatus: v})}>
                         <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                        <SelectContent dir="rtl">
-                          {SUBSCRIPTION_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                        <SelectContent dir={direction}>
+                          {SUBSCRIPTION_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{t(s.labelKey)}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">تاريخ البداية</Label>
+                      <Label className="text-xs">{t("offices.startDate")}</Label>
                       <Input type="date" dir="ltr" className="h-9 text-sm" value={formData.subscriptionStart} onChange={e => setFormData({...formData, subscriptionStart: e.target.value})} />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">تاريخ الانتهاء</Label>
+                      <Label className="text-xs">{t("offices.endDate")}</Label>
                       <Input type="date" dir="ltr" className="h-9 text-sm" value={formData.subscriptionEnd} onChange={e => setFormData({...formData, subscriptionEnd: e.target.value})} />
                     </div>
                   </div>
@@ -279,7 +282,7 @@ export default function Offices() {
 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    حفظ البيانات
+                    {t("offices.save")}
                   </Button>
                 </div>
               </form>
@@ -288,24 +291,24 @@ export default function Offices() {
         </div>
 
         <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
-          <DialogContent className="sm:max-w-[600px]" dir="rtl">
+          <DialogContent className="sm:max-w-[600px]" dir={direction}>
             <DialogHeader>
-              <DialogTitle>رابط دعوة مدير المكتب</DialogTitle>
+              <DialogTitle>{t("offices.inviteTitle")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                أرسل هذا الرابط لمدير المكتب ليقوم بتعيين كلمة المرور وتفعيل الحساب.
+                {t("offices.inviteHelp")}
               </p>
               <div className="flex gap-2">
                 <Input dir="ltr" readOnly value={latestInvite?.inviteUrl || ""} className="text-xs" />
                 <Button type="button" onClick={copyInviteLink} className="gap-2">
                   <Copy className="w-4 h-4" />
-                  نسخ
+                  {t("common.copy")}
                 </Button>
               </div>
               {latestInvite?.inviteExpiresAt && (
                 <p className="text-xs text-muted-foreground" dir="ltr">
-                  Expires: {new Date(latestInvite.inviteExpiresAt).toLocaleString()}
+                  {t("common.expires")}: {formatDate(latestInvite.inviteExpiresAt)}
                 </p>
               )}
             </div>
@@ -317,7 +320,7 @@ export default function Offices() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="ابحث باسم المكتب..." 
+                placeholder={t("offices.search")}
                 className="pl-3 pr-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -329,11 +332,11 @@ export default function Offices() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">اسم المكتب</TableHead>
-                  <TableHead className="text-right">المالك</TableHead>
-                  <TableHead className="text-right">التواصل</TableHead>
-                  <TableHead className="text-right">خطة الاشتراك</TableHead>
-                  <TableHead className="text-right">حالة الاشتراك</TableHead>
+                  <TableHead className="text-right">{t("offices.officeName")}</TableHead>
+                  <TableHead className="text-right">{t("offices.owner")}</TableHead>
+                  <TableHead className="text-right">{t("offices.contact")}</TableHead>
+                  <TableHead className="text-right">{t("offices.subscriptionPlan")}</TableHead>
+                  <TableHead className="text-right">{t("offices.subscriptionStatus")}</TableHead>
                   <TableHead className="w-[100px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -352,7 +355,7 @@ export default function Offices() {
                 ) : filteredOffices?.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                      لا يوجد مكاتب
+                      {t("offices.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -373,7 +376,7 @@ export default function Offices() {
                         {office.planName ? (
                           <span className="font-medium text-primary">{office.planName}</span>
                         ) : (
-                          <span className="text-muted-foreground text-sm">لا يوجد خطة</span>
+                          <span className="text-muted-foreground text-sm">{t("offices.noPlan")}</span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -381,36 +384,36 @@ export default function Offices() {
                           {getStatusBadge(office.subscriptionStatus)}
                           {office.subscriptionEnd && (
                             <span className="text-xs text-muted-foreground" dir="ltr">
-                              {new Date(office.subscriptionEnd).toLocaleDateString()}
+                              {formatDate(office.subscriptionEnd)}
                             </span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 justify-end">
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(office)} title="تعديل">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(office)} title={t("common.edit")}>
                             <Edit2 className="w-4 h-4 text-primary" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" title="حذف">
+                              <Button variant="ghost" size="icon" title={t("common.delete")}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent dir="rtl">
+                            <AlertDialogContent dir={direction}>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد من الحذف؟</AlertDialogTitle>
+                                <AlertDialogTitle>{t("common.confirmDelete")}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  لا يمكن التراجع عن هذا الإجراء بعد تنفيذه. سيتم حذف بيانات المكتب نهائياً.
+                                  {t("offices.deleteWarning")}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter className="gap-2 sm:gap-0">
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                                 <AlertDialogAction 
                                   onClick={() => deleteMutation.mutate({ id: office.id })}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                  حذف
+                                  {t("common.delete")}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

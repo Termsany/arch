@@ -1,7 +1,14 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
+  DEFAULT_CURRENCY,
+  DEFAULT_TIMEZONE,
+  formatCurrency as formatCurrencyValue,
+  formatDate as formatDateValue,
+  formatNumber as formatNumberValue,
+  formatRelativeDate as formatRelativeDateValue,
+} from "./formatters";
+import {
   defaultLanguage,
-  getLanguageDirection,
   isLanguageCode,
   languages,
   translations,
@@ -9,15 +16,21 @@ import {
   type LanguageCode,
   type TranslationKey,
 } from "./translations";
+import { resolveRuntimeLocale } from "@/lib/runtime-locale";
 
 const STORAGE_KEY = "archsaas_language";
 
 type LanguageContextValue = {
   language: LanguageCode;
+  locale: string;
   direction: Direction;
   languages: typeof languages;
   setLanguage: (language: LanguageCode) => void;
   t: (key: TranslationKey) => string;
+  formatCurrency: (value: number | string | null | undefined, currency?: string) => string;
+  formatNumber: (value: number | string | null | undefined) => string;
+  formatDate: (value: Date | string | number | null | undefined, timezone?: string) => string;
+  formatRelativeDate: (value: Date | string | number | null | undefined) => string;
 };
 
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
@@ -34,7 +47,8 @@ function getInitialLanguage(): LanguageCode {
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<LanguageCode>(getInitialLanguage);
-  const direction = getLanguageDirection(language);
+  const runtimeLocale = resolveRuntimeLocale({ savedLanguage: language, browserLanguage: navigator.language });
+  const direction = runtimeLocale.direction;
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, language);
@@ -48,11 +62,18 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<LanguageContextValue>(() => ({
     language,
+    locale: runtimeLocale.locale,
     direction,
     languages,
     setLanguage,
     t: (key) => translations[language][key] ?? translations[defaultLanguage][key] ?? key,
-  }), [language, direction]);
+    formatCurrency: (valueToFormat, currency = DEFAULT_CURRENCY) =>
+      formatCurrencyValue(valueToFormat, runtimeLocale.locale, currency),
+    formatNumber: (valueToFormat) => formatNumberValue(valueToFormat, runtimeLocale.locale),
+    formatDate: (valueToFormat, timezone = DEFAULT_TIMEZONE) =>
+      formatDateValue(valueToFormat, runtimeLocale.locale, timezone),
+    formatRelativeDate: (valueToFormat) => formatRelativeDateValue(valueToFormat, runtimeLocale.locale),
+  }), [language, runtimeLocale.locale, direction]);
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
+import { usersTable, type User } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   anyAuthMiddleware,
@@ -14,22 +14,32 @@ import {
 import { asyncHandler, fail, ok, validateBody } from "../lib/http";
 import { changePasswordSchema, loginSchema, resetPasswordSchema } from "../lib/validation";
 import { logAudit } from "../lib/audit";
+import { tApi } from "../i18n/messages";
+import { applyUserLocale } from "../middleware/locale";
 
 const router = Router();
+
+function safeUserResponse(user: User) {
+  const { passwordHash, inviteTokenHash, ...safe } = user;
+  void passwordHash;
+  void inviteTokenHash;
+  return safe;
+}
 
 router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, res) => {
     const { email, password } = req.body as { email: string; password: string };
     const users = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
     const user = users[0];
     if (!user) {
-      fail(res, 401, "بيانات الدخول غير صحيحة");
+      fail(res, 401, tApi(req, "AUTH.INVALID_CREDENTIALS"), { code: "AUTH.INVALID_CREDENTIALS" });
       return;
     }
     const valid = await comparePassword(password, user.passwordHash);
     if (!valid) {
-      fail(res, 401, "بيانات الدخول غير صحيحة");
+      fail(res, 401, tApi(req, "AUTH.INVALID_CREDENTIALS"), { code: "AUTH.INVALID_CREDENTIALS" });
       return;
     }
+    applyUserLocale(req, user.preferredLanguage);
     const token = signToken({
       id: user.id,
       email: user.email,
@@ -37,6 +47,7 @@ router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, r
       role: user.role,
       officeId: user.officeId ?? null,
       clientId: user.clientId ?? null,
+      preferredLanguage: user.preferredLanguage,
     });
     await logAudit({
       office_id: user.officeId,
@@ -56,6 +67,7 @@ router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, r
         role: user.role,
         officeId: user.officeId ?? null,
         clientId: user.clientId ?? null,
+        preferredLanguage: user.preferredLanguage,
         createdAt: user.createdAt,
       },
     }, 200, "تم تسجيل الدخول بنجاح");
@@ -65,24 +77,20 @@ router.get("/auth/me", authMiddleware, asyncHandler(async (req, res) => {
     const authUser = getUser(req);
     const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
     if (!users[0]) {
-      fail(res, 404, "المستخدم غير موجود");
+      fail(res, 404, tApi(req, "AUTH.USER_NOT_FOUND"), { code: "AUTH.USER_NOT_FOUND" });
       return;
     }
-    const { passwordHash, ...safe } = users[0];
-    void passwordHash;
-    ok(res, safe);
+    ok(res, safeUserResponse(users[0]));
 }));
 
 router.get("/auth/client-me", clientPortalMiddleware, asyncHandler(async (req, res) => {
     const authUser = getUser(req);
     const users = await db.select().from(usersTable).where(eq(usersTable.id, authUser.id)).limit(1);
     if (!users[0]) {
-      fail(res, 404, "المستخدم غير موجود");
+      fail(res, 404, tApi(req, "AUTH.USER_NOT_FOUND"), { code: "AUTH.USER_NOT_FOUND" });
       return;
     }
-    const { passwordHash, ...safe } = users[0];
-    void passwordHash;
-    ok(res, safe);
+    ok(res, safeUserResponse(users[0]));
 }));
 
 router.put("/auth/change-password", anyAuthMiddleware, validateBody(changePasswordSchema), asyncHandler(async (req, res) => {
@@ -92,13 +100,13 @@ router.put("/auth/change-password", anyAuthMiddleware, validateBody(changePasswo
   const user = users[0];
 
   if (!user) {
-    fail(res, 404, "المستخدم غير موجود");
+    fail(res, 404, tApi(req, "AUTH.USER_NOT_FOUND"), { code: "AUTH.USER_NOT_FOUND" });
     return;
   }
 
   const valid = await comparePassword(currentPassword, user.passwordHash);
   if (!valid) {
-    fail(res, 400, "كلمة المرور الحالية غير صحيحة");
+    fail(res, 400, tApi(req, "AUTH.CURRENT_PASSWORD_INVALID"), { code: "AUTH.CURRENT_PASSWORD_INVALID" });
     return;
   }
 

@@ -1,14 +1,22 @@
+import { useEffect } from "react";
 import { useGetActivePlans } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Star, Building2 } from "lucide-react";
 import { Link } from "wouter";
+import { useTranslation } from "@/i18n/language-context";
+import { setLocalizedMeta } from "@/i18n/seo";
 
 export default function Pricing() {
+  const { direction, language } = useTranslation();
   const { data: plans, isLoading } = useGetActivePlans();
 
+  useEffect(() => {
+    setLocalizedMeta("pricing", language);
+  }, [language]);
+
   return (
-    <div className="min-h-screen bg-background" dir="rtl">
+    <div className="min-h-screen bg-background" dir={direction}>
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xl font-bold text-primary">

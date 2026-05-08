@@ -10,9 +10,12 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  renderNotificationText,
   type AppNotification,
 } from "@/lib/notifications";
 import { toast } from "@/hooks/use-toast";
+import { useTranslation } from "@/i18n/language-context";
+import { defaultLanguage, translations, type TranslationKey } from "@/i18n/translations";
 
 const TYPE_LABELS: Record<string, string> = {
   client_approval: "موافقة العميل",
@@ -25,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 export default function NotificationsPage() {
+  const { direction, formatDate, t } = useTranslation();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +40,7 @@ export default function NotificationsPage() {
         setNotifications(data.notifications);
         setUnreadCount(data.unreadCount);
       })
-      .catch((err) => toast({ title: err instanceof Error ? err.message : "تعذر تحميل الإشعارات", variant: "destructive" }))
+      .catch((err) => toast({ title: err instanceof Error ? err.message : t("notifications.loadError"), variant: "destructive" }))
       .finally(() => setIsLoading(false));
   };
 
@@ -49,17 +53,17 @@ export default function NotificationsPage() {
       await markNotificationRead(id);
       load();
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر تحديث الإشعار", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("notifications.updateError"), variant: "destructive" });
     }
   };
 
   const handleMarkAllRead = async () => {
     try {
       await markAllNotificationsRead();
-      toast({ title: "تم تحديد الكل كمقروء" });
+      toast({ title: t("notifications.markAllRead") });
       load();
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر تحديث الإشعارات", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("notifications.updateError"), variant: "destructive" });
     }
   };
 
@@ -68,23 +72,26 @@ export default function NotificationsPage() {
       await deleteNotification(id);
       load();
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر حذف الإشعار", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("notifications.deleteError"), variant: "destructive" });
     }
   };
 
+  const translateDynamic = (key: string) =>
+    key in translations[defaultLanguage] ? t(key as TranslationKey) : key;
+
   return (
     <AppLayout>
-      <div className="max-w-4xl mx-auto space-y-5" dir="rtl">
+      <div className="max-w-4xl mx-auto space-y-5" dir={direction}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold">الإشعارات</h1>
+            <h1 className="text-2xl font-bold">{t("notifications.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {unreadCount > 0 ? `${unreadCount} إشعار غير مقروء` : "كل الإشعارات مقروءة"}
+              {unreadCount > 0 ? `${unreadCount} ${t("notifications.unreadCount")}` : t("notifications.allRead")}
             </p>
           </div>
           <Button variant="outline" className="gap-2" onClick={handleMarkAllRead} disabled={unreadCount === 0}>
             <CheckCheck className="w-4 h-4" />
-            تحديد الكل كمقروء
+            {t("notifications.markAllRead")}
           </Button>
         </div>
 
@@ -93,7 +100,7 @@ export default function NotificationsPage() {
         ) : notifications.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground border border-dashed rounded-lg">
             <Bell className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p>لا توجد إشعارات</p>
+            <p>{t("notifications.empty")}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -103,21 +110,21 @@ export default function NotificationsPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="font-semibold">{notification.title}</h2>
+                        <h2 className="font-semibold">{renderNotificationText(notification, "title", translateDynamic)}</h2>
                         <Badge variant="outline" className="font-normal">
                           {TYPE_LABELS[notification.notificationType] ?? notification.notificationType}
                         </Badge>
-                        {!notification.isRead && <Badge className="font-normal">جديد</Badge>}
+                        {!notification.isRead && <Badge className="font-normal">{t("common.new")}</Badge>}
                       </div>
-                      <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{notification.message}</p>
+                      <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{renderNotificationText(notification, "message", translateDynamic)}</p>
                       <p className="text-xs text-muted-foreground mt-2" dir="ltr">
-                        {new Date(notification.createdAt).toLocaleString("ar-SA")}
+                        {formatDate(notification.createdAt)}
                       </p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {!notification.isRead && (
                         <Button size="sm" variant="outline" onClick={() => handleMarkRead(notification.id)}>
-                          تحديد كمقروء
+                          {t("notifications.markRead")}
                         </Button>
                       )}
                       <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDelete(notification.id)}>

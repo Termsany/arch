@@ -1,11 +1,20 @@
+import { useEffect } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, UserRound, ArrowLeft, Sparkles } from "lucide-react";
+import { useTranslation } from "@/i18n/language-context";
+import { setLocalizedMeta } from "@/i18n/seo";
 
 export default function Home() {
+  const { direction, language } = useTranslation();
+
+  useEffect(() => {
+    setLocalizedMeta("home", language);
+  }, [language]);
+
   return (
-    <div className="min-h-screen bg-background p-4" dir="rtl">
+    <div className="min-h-screen bg-background p-4" dir={direction}>
       <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center gap-8">
         <header className="text-center space-y-3">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-xl bg-primary text-primary-foreground">

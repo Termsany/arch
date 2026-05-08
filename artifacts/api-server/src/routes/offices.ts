@@ -15,6 +15,7 @@ import { officeSchema } from "../lib/validation";
 import { logAudit } from "../lib/audit";
 import { DEFAULT_BOQ_CATEGORIES } from "../lib/defaults";
 import { createInviteToken } from "../lib/invites";
+import { tApi } from "../i18n/messages";
 
 const router = Router();
 
@@ -67,7 +68,7 @@ router.post("/offices", authMiddleware, async (req, res) => {
     const result = officeSchema.safeParse(rawBody);
 
     if (!result.success) {
-      fail(res, 400, "البيانات المدخلة غير صحيحة", result.error.flatten());
+      fail(res, 400, tApi(req, "VALIDATION.INVALID_INPUT"), { code: "VALIDATION.INVALID_INPUT", ...result.error.flatten() });
       return;
     }
 
@@ -176,7 +177,7 @@ router.post("/offices", authMiddleware, async (req, res) => {
     });
   } catch (err) {
     req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    res.status(500).json({ code: "COMMON.SERVER_ERROR", error: tApi(req, "COMMON.SERVER_ERROR") });
   }
 });
 
@@ -204,13 +205,13 @@ router.get("/offices/:id", authMiddleware, async (req, res) => {
       .where(eq(officesTable.id, id))
       .limit(1);
     if (!offices[0]) {
-      res.status(404).json({ error: "المكتب غير موجود" });
+      res.status(404).json({ code: "COMMON.NOT_FOUND", error: tApi(req, "COMMON.NOT_FOUND") });
       return;
     }
     res.json(offices[0]);
   } catch (err) {
     req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    res.status(500).json({ code: "COMMON.SERVER_ERROR", error: tApi(req, "COMMON.SERVER_ERROR") });
   }
 });
 
@@ -225,12 +226,12 @@ router.post("/offices/:id/regenerate-invite", authMiddleware, async (req, res) =
     const officeAdmin = officeUsers.find((row) => row.role === "office_admin");
 
     if (!officeAdmin) {
-      fail(res, 404, "لم يتم العثور على مدير المكتب");
+      fail(res, 404, tApi(req, "COMMON.NOT_FOUND"), { code: "COMMON.NOT_FOUND" });
       return;
     }
 
     if (user.role !== "super_admin" && user.officeId !== id) {
-      fail(res, 403, "ليس لديك صلاحية لتنفيذ هذا الإجراء");
+      fail(res, 403, tApi(req, "AUTH.FORBIDDEN"), { code: "AUTH.FORBIDDEN" });
       return;
     }
 
@@ -266,7 +267,7 @@ router.post("/offices/:id/regenerate-invite", authMiddleware, async (req, res) =
     res.json({ user: updated, inviteUrl: invite.inviteUrl, inviteExpiresAt: invite.expiresAt });
   } catch (err) {
     req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    res.status(500).json({ code: "COMMON.SERVER_ERROR", error: tApi(req, "COMMON.SERVER_ERROR") });
   }
 });
 
@@ -296,7 +297,7 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
       .where(eq(officesTable.id, id))
       .returning();
     if (!updated) {
-      res.status(404).json({ error: "المكتب غير موجود" });
+      res.status(404).json({ code: "COMMON.NOT_FOUND", error: tApi(req, "COMMON.NOT_FOUND") });
       return;
     }
     await logAudit({
@@ -312,7 +313,7 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
     res.json(updated);
   } catch (err) {
     req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    res.status(500).json({ code: "COMMON.SERVER_ERROR", error: tApi(req, "COMMON.SERVER_ERROR") });
   }
 });
 
@@ -334,7 +335,7 @@ router.delete("/offices/:id", authMiddleware, async (req, res) => {
     res.json({ success: true, message: "تم حذف المكتب بنجاح" });
   } catch (err) {
     req.log.error(err);
-    res.status(500).json({ error: "حدث خطأ في الخادم" });
+    res.status(500).json({ code: "COMMON.SERVER_ERROR", error: tApi(req, "COMMON.SERVER_ERROR") });
   }
 });
 

@@ -5,6 +5,8 @@ import { hashPassword as hashSecret } from "../lib/auth";
 import { asyncHandler, fail, ok } from "../lib/http";
 import { hashInviteToken } from "../lib/invites";
 import { logAudit } from "../lib/audit";
+import { tApi } from "../i18n/messages";
+import { validationMessage } from "../lib/validation-messages";
 
 const router = Router();
 
@@ -14,12 +16,12 @@ router.post("/invites/accept", asyncHandler(async (req, res) => {
   const newSecret = typeof body.newSecret === "string" ? body.newSecret : "";
 
   if (!inviteCode) {
-    fail(res, 400, "رابط الدعوة غير صحيح");
+    fail(res, 400, tApi(req, "INVITE.INVALID"), { code: "INVITE.INVALID" });
     return;
   }
 
   if (newSecret.length < 8) {
-    fail(res, 400, "كلمة المرور يجب أن تكون 8 أحرف على الأقل");
+    fail(res, 400, validationMessage(req.language, "passwordMin"), { code: "VALIDATION.INVALID_INPUT" });
     return;
   }
 
@@ -28,7 +30,7 @@ router.post("/invites/accept", asyncHandler(async (req, res) => {
   const invitedUser = rows[0];
 
   if (!invitedUser || !invitedUser.inviteExpiresAt || invitedUser.inviteExpiresAt.getTime() < Date.now()) {
-    fail(res, 400, "رابط الدعوة منتهي أو غير صحيح");
+    fail(res, 400, tApi(req, "INVITE.EXPIRED"), { code: "INVITE.EXPIRED" });
     return;
   }
 

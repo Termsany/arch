@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import { type Request, type Response, type NextFunction } from "express";
 import { fail } from "./http";
 import { getEnv } from "./env";
+import { tApi } from "../i18n/messages";
+import { applyUserLocale } from "../middleware/locale";
 
 const env = getEnv();
 const JWT_SECRET = env.jwtSecret;
@@ -16,6 +18,7 @@ export type AuthUser = {
   role: string;
   officeId: number | null;
   clientId: number | null;
+  preferredLanguage?: string | null;
 };
 
 export function hashPassword(password: string): Promise<string> {
@@ -45,7 +48,7 @@ export function getUser(req: Request): AuthUser {
 function attachUser(req: Request, res: Response): AuthUser | null {
   const authHeader = req.headers["authorization"];
   if (!authHeader?.startsWith("Bearer ")) {
-    fail(res, 401, "Unauthorized");
+    fail(res, 401, tApi(req, "AUTH.UNAUTHORIZED"), { code: "AUTH.UNAUTHORIZED" });
     return null;
   }
 
@@ -54,9 +57,10 @@ function attachUser(req: Request, res: Response): AuthUser | null {
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthUser;
     (req as Request & { user: AuthUser }).user = payload;
+    applyUserLocale(req, payload.preferredLanguage);
     return payload;
   } catch (err) {
-    const message = err instanceof jwt.TokenExpiredError ? "انتهت صلاحية الجلسة" : "Invalid or expired token";
+    const message = err instanceof jwt.TokenExpiredError ? tApi(req, "AUTH.UNAUTHORIZED") : tApi(req, "AUTH.UNAUTHORIZED");
     fail(res, 401, message);
     return null;
   }
@@ -72,7 +76,7 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   const payload = attachUser(req, res);
   if (!payload) return;
   if (payload.role === "client") {
-    fail(res, 403, "غير مصرح لك بالوصول لهذه الصفحة");
+    fail(res, 403, tApi(req, "AUTH.FORBIDDEN"), { code: "AUTH.FORBIDDEN" });
     return;
   }
   next();
@@ -82,7 +86,7 @@ export function clientPortalMiddleware(req: Request, res: Response, next: NextFu
   const payload = attachUser(req, res);
   if (!payload) return;
   if (payload.role !== "client") {
-    fail(res, 403, "هذه الصفحة مخصصة للعملاء فقط");
+    fail(res, 403, tApi(req, "AUTH.FORBIDDEN"), { code: "AUTH.FORBIDDEN" });
     return;
   }
   next();

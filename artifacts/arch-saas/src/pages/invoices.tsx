@@ -7,9 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { fetchInvoices, formatAmount, STATUS_LABELS, type Invoice } from "@/lib/invoices";
+import { fetchInvoices, STATUS_LABELS, type Invoice } from "@/lib/invoices";
+import { useTranslation } from "@/i18n/language-context";
 
 export default function InvoicesPage() {
+  const { direction, formatCurrency, formatDate } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -22,7 +24,7 @@ export default function InvoicesPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6" dir="rtl">
+      <div className="space-y-6" dir={direction}>
         <div>
           <h1 className="text-3xl font-bold">الفواتير والمدفوعات</h1>
           <p className="text-muted-foreground mt-1">متابعة الفواتير والمدفوعات اليدوية لكل مكتب</p>
@@ -55,10 +57,10 @@ export default function InvoicesPage() {
                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                       <TableCell>{invoice.clientName || "-"}</TableCell>
                       <TableCell>{invoice.projectName || "-"}</TableCell>
-                      <TableCell dir="ltr">{formatAmount(invoice.totalAmount)}</TableCell>
-                      <TableCell dir="ltr">{formatAmount(invoice.paidAmount)}</TableCell>
-                      <TableCell dir="ltr">{formatAmount(invoice.remainingAmount)}</TableCell>
-                      <TableCell dir="ltr">{invoice.dueDate || "-"}</TableCell>
+                      <TableCell dir="ltr">{formatCurrency(invoice.totalAmount)}</TableCell>
+                      <TableCell dir="ltr">{formatCurrency(invoice.paidAmount)}</TableCell>
+                      <TableCell dir="ltr">{formatCurrency(invoice.remainingAmount)}</TableCell>
+                      <TableCell dir="ltr">{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell><Badge variant="outline">{STATUS_LABELS[invoice.status]}</Badge></TableCell>
                       <TableCell><Button asChild variant="outline" size="sm"><Link href={`/invoices/${invoice.id}`}>عرض</Link></Button></TableCell>
                     </TableRow>

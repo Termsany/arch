@@ -66,7 +66,7 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
       <div className="flex-1 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+          const isActive = location === item.href || location.startsWith(`${item.href}/`);
 
           return (
             <Link key={item.href} href={item.href}>

@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { toast } from "@/hooks/use-toast";
 import { fetchAuditLogs, type AuditLogFilters, type AuditLogItem } from "@/lib/audit-logs";
 import { Eye, Filter, ScrollText } from "lucide-react";
+import { useTranslation } from "@/i18n/language-context";
 
 const labels = {
   ar: {
@@ -69,8 +70,8 @@ function pretty(value: unknown) {
 }
 
 export default function AuditLogsPage() {
-  const language = (localStorage.getItem("language") === "en" ? "en" : "ar") as "ar" | "en";
-  const t = labels[language];
+  const { direction, formatDate, formatNumber, language } = useTranslation();
+  const t = labels[language === "fr" ? "en" : language];
   const [filters, setFilters] = useState<AuditLogFilters>({ page: 1, limit: 25 });
   const [draft, setDraft] = useState<AuditLogFilters>({ page: 1, limit: 25 });
   const [logs, setLogs] = useState<AuditLogItem[]>([]);
@@ -99,14 +100,14 @@ export default function AuditLogsPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-5" dir={language === "ar" ? "rtl" : "ltr"}>
+      <div className="space-y-5" dir={direction}>
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
             <ScrollText className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-2xl font-bold">{t.title}</h1>
-            <p className="text-sm text-muted-foreground">{total.toLocaleString(language === "ar" ? "ar-EG" : "en-US")} {t.title}</p>
+            <p className="text-sm text-muted-foreground">{formatNumber(total)} {t.title}</p>
           </div>
         </div>
 
@@ -180,7 +181,7 @@ export default function AuditLogsPage() {
                       <TableCell>{log.entityType}{log.entityId ? ` #${log.entityId}` : ""}</TableCell>
                       <TableCell>{log.userName || log.userEmail || "-"}</TableCell>
                       <TableCell>{log.officeName || "-"}</TableCell>
-                      <TableCell dir="ltr">{new Date(log.createdAt).toLocaleString(language === "ar" ? "ar-EG" : "en-US")}</TableCell>
+                      <TableCell dir="ltr">{formatDate(log.createdAt)}</TableCell>
                       <TableCell>
                         <Button variant="ghost" size="sm" className="gap-2" onClick={() => setSelected(log)}>
                           <Eye className="w-4 h-4" />
@@ -206,7 +207,7 @@ export default function AuditLogsPage() {
         </div>
 
         <Dialog open={Boolean(selected)} onOpenChange={(open) => !open && setSelected(null)}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto" dir={language === "ar" ? "rtl" : "ltr"}>
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-auto" dir={direction}>
             <DialogHeader>
               <DialogTitle>{t.details}</DialogTitle>
             </DialogHeader>

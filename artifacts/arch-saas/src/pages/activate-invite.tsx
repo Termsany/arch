@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2 } from "lucide-react";
+import { useTranslation } from "@/i18n/language-context";
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "message" in error) {
     const message = (error as { message?: unknown }).message;
     if (typeof message === "string" && message.trim()) return message;
   }
-  return "حدث خطأ حاول مرة أخرى";
+  return fallback;
 }
 
 async function activateInvite(inviteCode: string, newSecret: string): Promise<void> {
@@ -30,6 +31,7 @@ async function activateInvite(inviteCode: string, newSecret: string): Promise<vo
 }
 
 export default function ActivateInvite() {
+  const { direction, t } = useTranslation();
   const [, setLocation] = useLocation();
   const inviteCode = useMemo(() => new URLSearchParams(window.location.search).get("token") || "", []);
   const [secret, setSecret] = useState("");
@@ -41,17 +43,17 @@ export default function ActivateInvite() {
     event.preventDefault();
 
     if (!inviteCode) {
-      toast({ title: "رابط الدعوة غير صحيح", variant: "destructive" });
+      toast({ title: t("error.invalidInvite"), variant: "destructive" });
       return;
     }
 
     if (secret.length < 8) {
-      toast({ title: "كلمة السر يجب أن تكون 8 أحرف على الأقل", variant: "destructive" });
+      toast({ title: t("error.secretMin"), variant: "destructive" });
       return;
     }
 
     if (secret !== secretConfirm) {
-      toast({ title: "تأكيد كلمة السر غير مطابق", variant: "destructive" });
+      toast({ title: t("error.secretMismatch"), variant: "destructive" });
       return;
     }
 
@@ -59,43 +61,43 @@ export default function ActivateInvite() {
     try {
       await activateInvite(inviteCode, secret);
       setIsDone(true);
-      toast({ title: "تم تفعيل الحساب بنجاح" });
+      toast({ title: t("toast.accountActivated") });
     } catch (error) {
-      toast({ title: getErrorMessage(error), variant: "destructive" });
+      toast({ title: getErrorMessage(error, t("error.tryAgain")), variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4" dir="rtl">
+    <div className="min-h-screen w-full flex items-center justify-center bg-background p-4" dir={direction}>
       <Card className="w-full max-w-md shadow-2xl border-border/50 bg-card/90 backdrop-blur-sm">
         <CardHeader className="space-y-3 text-center pb-6">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
             {isDone ? <CheckCircle2 className="w-8 h-8 text-primary-foreground" /> : <Building2 className="w-8 h-8 text-primary-foreground" />}
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            {isDone ? "تم تفعيل الحساب" : "تفعيل الدعوة"}
+            {isDone ? t("invite.doneTitle") : t("invite.title")}
           </CardTitle>
           <CardDescription>
-            {isDone ? "يمكنك الآن تسجيل الدخول ببيانات الحساب الجديدة." : "أدخل كلمة سر جديدة لتفعيل حساب مدير المكتب."}
+            {isDone ? t("invite.doneDescription") : t("invite.description")}
           </CardDescription>
         </CardHeader>
 
         {isDone ? (
           <CardFooter className="pb-8">
-            <Button className="w-full h-12" onClick={() => setLocation("/login")}>الذهاب لتسجيل الدخول</Button>
+            <Button className="w-full h-12" onClick={() => setLocation("/login")}>{t("invite.goLogin")}</Button>
           </CardFooter>
         ) : (
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-5">
               {!inviteCode && (
                 <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  رابط الدعوة غير صحيح أو ناقص.
+                  {t("invite.invalidLink")}
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="secret">كلمة السر الجديدة</Label>
+                <Label htmlFor="secret">{t("invite.newSecret")}</Label>
                 <Input
                   id="secret"
                   type="password"
@@ -108,7 +110,7 @@ export default function ActivateInvite() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="secretConfirm">تأكيد كلمة السر</Label>
+                <Label htmlFor="secretConfirm">{t("invite.confirmSecret")}</Label>
                 <Input
                   id="secretConfirm"
                   type="password"
@@ -123,10 +125,10 @@ export default function ActivateInvite() {
             </CardContent>
             <CardFooter className="flex flex-col gap-4 pb-8">
               <Button type="submit" className="w-full h-12" disabled={isSubmitting || !inviteCode}>
-                {isSubmitting ? "جاري التفعيل..." : "تفعيل الحساب"}
+                {isSubmitting ? t("invite.submitting") : t("invite.submit")}
               </Button>
               <Link href="/login" className="text-sm text-primary hover:underline">
-                الرجوع لتسجيل الدخول
+                {t("invite.backLogin")}
               </Link>
             </CardFooter>
           </form>

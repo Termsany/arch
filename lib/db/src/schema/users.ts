@@ -9,6 +9,7 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   role: varchar("role", { length: 50 }).notNull().default("team_member"),
   status: varchar("status", { length: 50 }).notNull().default("active"),
+  preferredLanguage: varchar("preferred_language", { length: 10 }).notNull().default("ar"),
   inviteTokenHash: text("invite_token_hash"),
   inviteExpiresAt: timestamp("invite_expires_at"),
   passwordSetAt: timestamp("password_set_at"),

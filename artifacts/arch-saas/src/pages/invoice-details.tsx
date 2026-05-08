@@ -22,18 +22,19 @@ import {
   deleteInvoiceItem,
   deletePayment,
   fetchInvoice,
-  formatAmount,
   STATUS_LABELS,
   updateInvoice,
   updateInvoiceStatus,
   type InvoiceDetails,
 } from "@/lib/invoices";
 import { sendWhatsappMessage, type WhatsappMessageType } from "@/lib/whatsapp";
+import { useTranslation } from "@/i18n/language-context";
 
 const emptyItem = { itemName: "", description: "", quantity: "1", unitPrice: "0" };
 const emptyPayment = { amount: "", paymentDate: new Date().toISOString().slice(0, 10), paymentMethod: "", referenceNumber: "", notes: "" };
 
 export default function InvoiceDetailsPage() {
+  const { direction, formatCurrency, formatDate } = useTranslation();
   const params = useParams<{ id: string }>();
   const invoiceId = Number(params.id);
   const [, setLocation] = useLocation();
@@ -144,7 +145,7 @@ export default function InvoiceDetailsPage() {
 
   return (
     <AppLayout>
-      <div className="space-y-6" dir="rtl">
+      <div className="space-y-6" dir={direction}>
         <div className="flex flex-col sm:flex-row justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">رقم الفاتورة {invoice.invoiceNumber}</h1>
@@ -154,20 +155,20 @@ export default function InvoiceDetailsPage() {
             <Button variant="outline" onClick={printInvoice} className="gap-2"><Printer className="w-4 h-4" />طباعة</Button>
             <Button
               variant="outline"
-              onClick={() => sendInvoiceWhatsapp("invoice_created", `مرحباً ${invoice.clientName || "عميلنا"}، تم إصدار فاتورة رقم ${invoice.invoiceNumber} لمشروع "${invoice.projectName || "-"}" بإجمالي ${formatAmount(invoice.totalAmount)}.`)}
+              onClick={() => sendInvoiceWhatsapp("invoice_created", `مرحباً ${invoice.clientName || "عميلنا"}، تم إصدار فاتورة رقم ${invoice.invoiceNumber} لمشروع "${invoice.projectName || "-"}" بإجمالي ${formatCurrency(invoice.totalAmount)}.`)}
               className="gap-2"
             >
               <MessageCircle className="w-4 h-4" />إرسال الفاتورة واتساب
             </Button>
             <Button
               variant="outline"
-              onClick={() => sendInvoiceWhatsapp("payment_reminder", `مرحباً ${invoice.clientName || "عميلنا"}، نذكركم بوجود مبلغ مستحق بقيمة ${formatAmount(invoice.remainingAmount)} على الفاتورة ${invoice.invoiceNumber}.`)}
+              onClick={() => sendInvoiceWhatsapp("payment_reminder", `مرحباً ${invoice.clientName || "عميلنا"}، نذكركم بوجود مبلغ مستحق بقيمة ${formatCurrency(invoice.remainingAmount)} على الفاتورة ${invoice.invoiceNumber}.`)}
             >
               إرسال تذكير بالدفع
             </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild><Button variant="destructive">حذف</Button></AlertDialogTrigger>
-              <AlertDialogContent dir="rtl">
+              <AlertDialogContent dir={direction}>
                 <AlertDialogHeader><AlertDialogTitle>حذف الفاتورة؟</AlertDialogTitle><AlertDialogDescription>سيتم حذف البنود والمدفوعات المرتبطة بها.</AlertDialogDescription></AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>إلغاء</AlertDialogCancel>
@@ -185,20 +186,20 @@ export default function InvoiceDetailsPage() {
             ["المتبقي", invoice.remainingAmount],
             ["الضريبة", invoice.taxAmount],
           ].map(([label, value]) => (
-            <Card key={label}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-bold" dir="ltr">{formatAmount(value)}</p></CardContent></Card>
+            <Card key={label}><CardContent className="p-4"><p className="text-sm text-muted-foreground">{label}</p><p className="text-2xl font-bold" dir="ltr">{formatCurrency(value)}</p></CardContent></Card>
           ))}
         </div>
 
         <Card>
           <CardHeader><CardTitle>معلومات الفاتورة</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2"><Label>تاريخ الإصدار</Label><Input value={invoice.issueDate} disabled dir="ltr" /></div>
+            <div className="space-y-2"><Label>تاريخ الإصدار</Label><Input value={formatDate(invoice.issueDate)} disabled dir="ltr" /></div>
             <div className="space-y-2"><Label>تاريخ الاستحقاق</Label><Input type="date" dir="ltr" value={editForm.dueDate} onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })} /></div>
             <div className="space-y-2">
               <Label>الحالة</Label>
               <Select value={invoice.status} onValueChange={async (status) => { await updateInvoiceStatus(invoiceId, status as "draft" | "sent" | "cancelled"); load(); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent dir="rtl">
+                <SelectContent dir={direction}>
                   <SelectItem value="draft">مسودة</SelectItem>
                   <SelectItem value="sent">مرسلة</SelectItem>
                   <SelectItem value="cancelled">ملغية</SelectItem>
@@ -218,7 +219,7 @@ export default function InvoiceDetailsPage() {
             <CardTitle>بنود الفاتورة</CardTitle>
             <Dialog open={itemOpen} onOpenChange={setItemOpen}>
               <DialogTrigger asChild><Button size="sm" className="gap-2"><Plus className="w-4 h-4" />إضافة بند</Button></DialogTrigger>
-              <DialogContent dir="rtl">
+              <DialogContent dir={direction}>
                 <DialogHeader><DialogTitle>إضافة بند</DialogTitle></DialogHeader>
                 <form onSubmit={addItem} className="space-y-3">
                   <Input required placeholder="البند" value={itemForm.itemName} onChange={(e) => setItemForm({ ...itemForm, itemName: e.target.value })} />
@@ -235,7 +236,7 @@ export default function InvoiceDetailsPage() {
           <CardContent>
             {invoice.items.length === 0 ? <div className="text-center py-10 text-muted-foreground">لا توجد بنود</div> : (
               <Table><TableHeader><TableRow><TableHead className="text-right">البند</TableHead><TableHead className="text-right">الوصف</TableHead><TableHead className="text-right">الكمية</TableHead><TableHead className="text-right">سعر الوحدة</TableHead><TableHead className="text-right">الإجمالي</TableHead><TableHead /></TableRow></TableHeader><TableBody>
-                {invoice.items.map((item) => <TableRow key={item.id}><TableCell>{item.itemName}</TableCell><TableCell>{item.description || "-"}</TableCell><TableCell dir="ltr">{item.quantity}</TableCell><TableCell dir="ltr">{formatAmount(item.unitPrice)}</TableCell><TableCell dir="ltr">{formatAmount(item.totalPrice)}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={async () => { await deleteInvoiceItem(item.id); load(); }}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell></TableRow>)}
+                {invoice.items.map((item) => <TableRow key={item.id}><TableCell>{item.itemName}</TableCell><TableCell>{item.description || "-"}</TableCell><TableCell dir="ltr">{item.quantity}</TableCell><TableCell dir="ltr">{formatCurrency(item.unitPrice)}</TableCell><TableCell dir="ltr">{formatCurrency(item.totalPrice)}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={async () => { await deleteInvoiceItem(item.id); load(); }}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell></TableRow>)}
               </TableBody></Table>
             )}
           </CardContent>
@@ -246,7 +247,7 @@ export default function InvoiceDetailsPage() {
             <CardTitle>المدفوعات</CardTitle>
             <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
               <DialogTrigger asChild><Button size="sm">تسجيل دفعة</Button></DialogTrigger>
-              <DialogContent dir="rtl">
+              <DialogContent dir={direction}>
                 <DialogHeader><DialogTitle>تسجيل دفعة</DialogTitle></DialogHeader>
                 <form onSubmit={recordPayment} className="space-y-3">
                   <Input required type="number" min="0.01" step="0.01" dir="ltr" placeholder="مبلغ الدفعة" value={paymentForm.amount} onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
@@ -262,7 +263,7 @@ export default function InvoiceDetailsPage() {
           <CardContent>
             {invoice.payments.length === 0 ? <div className="text-center py-10 text-muted-foreground">لا توجد مدفوعات</div> : (
               <Table><TableHeader><TableRow><TableHead className="text-right">تاريخ الدفعة</TableHead><TableHead className="text-right">مبلغ الدفعة</TableHead><TableHead className="text-right">طريقة الدفع</TableHead><TableHead className="text-right">رقم المرجع</TableHead><TableHead /></TableRow></TableHeader><TableBody>
-                {invoice.payments.map((payment) => <TableRow key={payment.id}><TableCell dir="ltr">{payment.paymentDate}</TableCell><TableCell dir="ltr">{formatAmount(payment.amount)}</TableCell><TableCell>{payment.paymentMethod || "-"}</TableCell><TableCell>{payment.referenceNumber || "-"}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={async () => { await deletePayment(payment.id); load(); }}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell></TableRow>)}
+                {invoice.payments.map((payment) => <TableRow key={payment.id}><TableCell dir="ltr">{formatDate(payment.paymentDate)}</TableCell><TableCell dir="ltr">{formatCurrency(payment.amount)}</TableCell><TableCell>{payment.paymentMethod || "-"}</TableCell><TableCell>{payment.referenceNumber || "-"}</TableCell><TableCell><Button variant="ghost" size="icon" onClick={async () => { await deletePayment(payment.id); load(); }}><Trash2 className="w-4 h-4 text-destructive" /></Button></TableCell></TableRow>)}
               </TableBody></Table>
             )}
           </CardContent>

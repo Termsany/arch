@@ -6,6 +6,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { apiResponseEnvelope, errorHandler, fail, notFoundHandler } from "./lib/http";
+import { localeMiddleware } from "./middleware/locale";
 
 const app: Express = express();
 
@@ -116,6 +117,7 @@ app.options(/.*/, cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(localeMiddleware);
 app.use(apiResponseEnvelope);
 
 // Apply rate limit only after preflight is handled

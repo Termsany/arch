@@ -8,9 +8,28 @@ export interface AppNotification {
   projectId: number | null;
   title: string;
   message: string;
+  key?: string | null;
+  params?: Record<string, string | number> | null;
   notificationType: string;
   isRead: boolean;
   createdAt: string;
+}
+
+export function renderNotificationText(
+  notification: AppNotification,
+  field: "title" | "message",
+  translate: (key: string) => string,
+): string {
+  const translatedKey = notification.key ? translate(notification.key) : "";
+  const fallback = field === "title" ? notification.title : notification.message;
+  const template = translatedKey && translatedKey !== notification.key ? translatedKey : fallback;
+
+  if (!notification.params) return template;
+
+  return Object.entries(notification.params).reduce(
+    (message, [key, value]) => message.replace(new RegExp(`{{\\s*${key}\\s*}}`, "g"), String(value)),
+    template,
+  );
 }
 
 export interface NotificationsResponse {

@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import { validationMessage } from "./validation-messages";
 
 const trimString = (min = 1, max = 255) => z.string().trim().min(min).max(max);
 const optionalText = (max = 2000) => z.string().trim().max(max).optional().nullable();
@@ -17,7 +18,7 @@ const optionalDate = z
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
     const parsed = new Date(trimmed);
     return Number.isNaN(parsed.getTime()) ? trimmed : parsed.toISOString().slice(0, 10);
-  }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "تاريخ غير صحيح، استخدم صيغة YYYY-MM-DD"))
+  }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, validationMessage("ar", "invalidDate")))
   .optional()
   .nullable();
 const numeric = z.coerce.number().finite();
@@ -29,25 +30,25 @@ export const idParamSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.email("البريد الإلكتروني غير صحيح").max(150),
-  password: z.string().min(1, "كلمة المرور مطلوبة").max(200),
+  email: z.email(validationMessage("ar", "email")).max(150),
+  password: z.string().min(1, validationMessage("ar", "passwordRequired")).max(200),
 });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "كلمة المرور الحالية مطلوبة").max(200),
-  newPassword: z.string().min(8, "كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل").max(200),
+  currentPassword: z.string().min(1, validationMessage("ar", "currentPasswordRequired")).max(200),
+  newPassword: z.string().min(8, validationMessage("ar", "newPasswordMin")).max(200),
 });
 
 export const resetPasswordSchema = z.object({
-  email: z.email("البريد الإلكتروني غير صحيح").max(150),
+  email: z.email(validationMessage("ar", "email")).max(150),
 });
 
 export const createOfficeOnboardingSchema = z.object({
   office_name: trimString(1, 150),
   owner_name: trimString(1, 150),
-  phone: z.string().trim().min(5, "رقم الهاتف مطلوب").max(50),
-  email: z.email("البريد الإلكتروني غير صحيح").max(150),
-  password: z.string().min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل").max(200),
+  phone: z.string().trim().min(5, validationMessage("ar", "phoneRequired")).max(50),
+  email: z.email(validationMessage("ar", "email")).max(150),
+  password: z.string().min(8, validationMessage("ar", "passwordMin")).max(200),
   plan_id: z.coerce.number().int().positive(),
 });
 
@@ -61,8 +62,8 @@ export const clientSchema = z.object({
 });
 
 export const portalUserSchema = z.object({
-  email: z.email("البريد الإلكتروني غير صحيح").max(150),
-  password: z.string().min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل").max(200),
+  email: z.email(validationMessage("ar", "email")).max(150),
+  password: z.string().min(8, validationMessage("ar", "passwordMin")).max(200),
 });
 
 export const projectSchema = z.object({
