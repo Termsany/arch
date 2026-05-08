@@ -14,6 +14,10 @@ export const officesTable = pgTable("offices", {
   subscriptionStatus: varchar("subscription_status", { length: 50 }).notNull().default("trial"),
   subscriptionStart: date("subscription_start"),
   subscriptionEnd: date("subscription_end"),
+  region: varchar("region", { length: 20 }).notNull().default("EG"),
+  defaultLanguage: varchar("default_language", { length: 10 }).notNull().default("ar"),
+  timezone: varchar("timezone", { length: 100 }).notNull().default("Africa/Cairo"),
+  currency: varchar("currency", { length: 3 }).notNull().default("EGP"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
