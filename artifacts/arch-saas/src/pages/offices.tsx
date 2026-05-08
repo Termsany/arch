@@ -39,6 +39,19 @@ function addDays(dateString: string, days: number): string {
   return dateOnly(date);
 }
 
+function getErrorMessage(error: unknown): string {
+  const data = (error as { data?: unknown } | null)?.data;
+  if (data && typeof data === "object") {
+    const message = (data as { message?: unknown; error?: unknown }).message ?? (data as { error?: unknown }).error;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+
+  const message = (error as { message?: unknown } | null)?.message;
+  if (typeof message === "string" && message.trim()) return message;
+
+  return "حدث خطأ حاول مرة أخرى";
+}
+
 export default function Offices() {
   const queryClient = useQueryClient();
   const { data: offices, isLoading } = useGetOffices();
@@ -53,6 +66,7 @@ export default function Offices() {
     ownerName: "",
     phone: "",
     email: "",
+    password: "",
     address: "",
     planId: "none",
     subscriptionStatus: "trial",
@@ -64,11 +78,11 @@ export default function Offices() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: "تم إنشاء المكتب وحساب مدير المكتب بنجاح" });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
     }
   });
 
@@ -80,7 +94,7 @@ export default function Offices() {
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
     }
   });
 
@@ -90,7 +104,7 @@ export default function Offices() {
         queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
         toast({ title: "تم الحذف بنجاح" });
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
     }
   });
 
@@ -100,6 +114,7 @@ export default function Offices() {
       ownerName: "",
       phone: "",
       email: "",
+      password: "",
       address: "",
       planId: "none",
       subscriptionStatus: "trial",
@@ -116,6 +131,7 @@ export default function Offices() {
       ownerName: office.ownerName || "",
       phone: office.phone || "",
       email: office.email || "",
+      password: "",
       address: office.address || "",
       planId: office.planId ? office.planId.toString() : "none",
       subscriptionStatus: office.subscriptionStatus,
@@ -127,6 +143,11 @@ export default function Offices() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!editingOffice && formData.password.length < 8) {
+      toast({ title: "كلمة المرور يجب أن تكون 8 أحرف على الأقل", variant: "destructive" });
+      return;
+    }
     
     const subscriptionStart = formData.subscriptionStart || dateOnly(new Date());
     const subscriptionEnd = formData.subscriptionEnd || (formData.subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : null);
@@ -145,7 +166,7 @@ export default function Offices() {
     if (editingOffice) {
       updateMutation.mutate({ id: editingOffice.id, data: payload });
     } else {
-      createMutation.mutate({ data: payload });
+      createMutation.mutate({ data: { ...payload, password: formData.password } });
     }
   };
 
@@ -190,8 +211,8 @@ export default function Offices() {
                     <Input required value={formData.officeName} onChange={e => setFormData({...formData, officeName: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="ownerName">اسم المالك / المدير</Label>
-                    <Input value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
+                    <Label htmlFor="ownerName">اسم المالك / المدير *</Label>
+                    <Input required value={formData.ownerName} onChange={e => setFormData({...formData, ownerName: e.target.value})} />
                   </div>
                 </div>
 
@@ -201,10 +222,26 @@ export default function Offices() {
                     <Input dir="ltr" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">البريد الإلكتروني</Label>
-                    <Input type="email" dir="ltr" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                    <Label htmlFor="email">البريد الإلكتروني *</Label>
+                    <Input required type="email" dir="ltr" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                   </div>
                 </div>
+
+                {!editingOffice && (
+                  <div className="space-y-2">
+                    <Label htmlFor="password">كلمة مرور مدير المكتب *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      dir="ltr"
+                      minLength={8}
+                      required
+                      value={formData.password}
+                      onChange={e => setFormData({...formData, password: e.target.value})}
+                    />
+                    <p className="text-xs text-muted-foreground">سيتم إنشاء حساب office_admin بهذا البريد وهذه كلمة المرور.</p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>تفاصيل الاشتراك</Label>
