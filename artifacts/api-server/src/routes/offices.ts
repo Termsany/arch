@@ -1,11 +1,18 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { officesTable, subscriptionPlansTable } from "@workspace/db";
+import {
+  boqCategoriesTable,
+  officeSettingsTable,
+  officesTable,
+  subscriptionPlansTable,
+  usersTable,
+} from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
-import { authMiddleware, getUser } from "../lib/auth";
-import { validateBody } from "../lib/http";
+import { authMiddleware, getUser, hashPassword } from "../lib/auth";
+import { fail, validateBody } from "../lib/http";
 import { officeSchema } from "../lib/validation";
 import { logAudit } from "../lib/audit";
+import { DEFAULT_BOQ_CATEGORIES } from "../lib/defaults";
 
 const router = Router();
 
@@ -47,37 +54,115 @@ router.get("/offices", authMiddleware, async (req, res) => {
   }
 });
 
-router.post("/offices", authMiddleware, validateBody(officeSchema), async (req, res) => {
+router.post("/offices", authMiddleware, async (req, res) => {
   try {
     const user = getUser(req);
-    const body = req.body as Record<string, unknown>;
+    const rawBody = req.body as Record<string, unknown>;
+    const result = officeSchema.safeParse(rawBody);
+
+    if (!result.success) {
+      fail(res, 400, "البيانات المدخلة غير صحيحة", result.error.flatten());
+      return;
+    }
+
+    const body = result.data as Record<string, unknown>;
+    const adminEmail = typeof body["email"] === "string" ? body["email"].trim() : "";
+    const adminName = typeof body["ownerName"] === "string" ? body["ownerName"].trim() : "";
+    const adminPassword = typeof rawBody["password"] === "string" ? rawBody["password"] : "";
+
+    if (!adminName) {
+      fail(res, 400, "اسم المالك / المدير مطلوب لإنشاء حساب مدير المكتب");
+      return;
+    }
+
+    if (!adminEmail) {
+      fail(res, 400, "البريد الإلكتروني مطلوب لإنشاء حساب مدير المكتب");
+      return;
+    }
+
+    if (adminPassword.length < 8) {
+      fail(res, 400, "كلمة المرور يجب أن تكون 8 أحرف على الأقل");
+      return;
+    }
+
+    const existingUser = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.email, adminEmail)).limit(1);
+    if (existingUser[0]) {
+      fail(res, 409, "البريد الإلكتروني مستخدم بالفعل");
+      return;
+    }
+
+    const existingOffice = await db.select({ id: officesTable.id }).from(officesTable).where(eq(officesTable.email, adminEmail)).limit(1);
+    if (existingOffice[0]) {
+      fail(res, 409, "البريد الإلكتروني مستخدم بالفعل");
+      return;
+    }
+
     const subscriptionStatus = (body["subscriptionStatus"] as string) || "trial";
     const subscriptionStart = (body["subscriptionStart"] as string | null) || toDateString(new Date());
     const subscriptionEnd = (body["subscriptionEnd"] as string | null) || (subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : null);
-    const [office] = await db
-      .insert(officesTable)
-      .values({
-        officeName: body["officeName"] as string,
-        ownerName: (body["ownerName"] as string) || null,
-        phone: (body["phone"] as string) || null,
-        email: (body["email"] as string) || null,
-        address: (body["address"] as string) || null,
-        planId: body["planId"] ? Number(body["planId"]) : null,
-        subscriptionStatus,
-        subscriptionStart,
-        subscriptionEnd,
-      })
-      .returning();
+    const passwordHash = await hashPassword(adminPassword);
+
+    const created = await db.transaction(async (tx) => {
+      const [office] = await tx
+        .insert(officesTable)
+        .values({
+          officeName: body["officeName"] as string,
+          ownerName: adminName,
+          phone: (body["phone"] as string) || null,
+          email: adminEmail,
+          address: (body["address"] as string) || null,
+          planId: body["planId"] ? Number(body["planId"]) : null,
+          subscriptionStatus,
+          subscriptionStart,
+          subscriptionEnd,
+        })
+        .returning();
+
+      const [officeAdmin] = await tx
+        .insert(usersTable)
+        .values({
+          name: adminName,
+          email: adminEmail,
+          passwordHash,
+          role: "office_admin",
+          officeId: office!.id,
+        })
+        .returning({
+          id: usersTable.id,
+          name: usersTable.name,
+          email: usersTable.email,
+          role: usersTable.role,
+          officeId: usersTable.officeId,
+        });
+
+      await tx.insert(officeSettingsTable).values({
+        officeId: office!.id,
+        onboardingCompleted: false,
+      });
+
+      await tx.insert(boqCategoriesTable).values(
+        DEFAULT_BOQ_CATEGORIES.map((category, index) => ({
+          officeId: office!.id,
+          name: category.name,
+          description: category.description,
+          sortOrder: index + 1,
+        })),
+      );
+
+      return { office: office!, officeAdmin: officeAdmin! };
+    });
+
     await logAudit({
-      office_id: office?.id ?? null,
+      office_id: created.office.id,
       user_id: user.id,
       action: "office.create",
       entity_type: "office",
-      entity_id: office?.id ?? null,
-      new_value: office,
+      entity_id: created.office.id,
+      new_value: { office: created.office, officeAdmin: created.officeAdmin },
       req,
     });
-    res.status(201).json(office);
+
+    res.status(201).json(created.office);
   } catch (err) {
     req.log.error(err);
     res.status(500).json({ error: "حدث خطأ في الخادم" });
