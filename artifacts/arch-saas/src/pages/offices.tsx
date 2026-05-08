@@ -16,10 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Search, Building2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Building2, Copy } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 
 const SUBSCRIPTION_STATUSES = [
   { value: "trial", label: "عرض تجريبي", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
@@ -28,6 +27,13 @@ const SUBSCRIPTION_STATUSES = [
   { value: "inactive", label: "غير نشط", color: "bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-300" },
   { value: "cancelled", label: "ملغي", color: "bg-rose-100 text-rose-800 dark:bg-rose-900 dark:text-rose-300" }
 ];
+
+type CreateOfficeInviteResponse = {
+  office?: unknown;
+  officeAdmin?: unknown;
+  inviteUrl?: string;
+  inviteExpiresAt?: string;
+};
 
 function dateOnly(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -59,6 +65,8 @@ export default function Offices() {
   
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [latestInvite, setLatestInvite] = useState<CreateOfficeInviteResponse | null>(null);
   const [editingOffice, setEditingOffice] = useState<any>(null);
   
   const [formData, setFormData] = useState({
@@ -66,7 +74,6 @@ export default function Offices() {
     ownerName: "",
     phone: "",
     email: "",
-    password: "",
     address: "",
     planId: "none",
     subscriptionStatus: "trial",
@@ -76,11 +83,16 @@ export default function Offices() {
 
   const createMutation = useCreateOffice({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
+        const response = data as CreateOfficeInviteResponse;
         queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
-        toast({ title: "تم إنشاء المكتب وحساب مدير المكتب بنجاح" });
+        toast({ title: "تم إنشاء المكتب وإنشاء رابط الدعوة" });
         setIsDialogOpen(false);
         resetForm();
+        setLatestInvite(response);
+        if (response.inviteUrl) {
+          setIsInviteDialogOpen(true);
+        }
       },
       onError: (error) => toast({ title: getErrorMessage(error), variant: "destructive" })
     }
@@ -114,7 +126,6 @@ export default function Offices() {
       ownerName: "",
       phone: "",
       email: "",
-      password: "",
       address: "",
       planId: "none",
       subscriptionStatus: "trial",
@@ -124,6 +135,12 @@ export default function Offices() {
     setEditingOffice(null);
   };
 
+  const copyInviteLink = async () => {
+    if (!latestInvite?.inviteUrl) return;
+    await navigator.clipboard.writeText(latestInvite.inviteUrl);
+    toast({ title: "تم نسخ رابط الدعوة" });
+  };
+
   const handleEdit = (office: any) => {
     setEditingOffice(office);
     setFormData({
@@ -131,7 +148,6 @@ export default function Offices() {
       ownerName: office.ownerName || "",
       phone: office.phone || "",
       email: office.email || "",
-      password: "",
       address: office.address || "",
       planId: office.planId ? office.planId.toString() : "none",
       subscriptionStatus: office.subscriptionStatus,
@@ -143,11 +159,6 @@ export default function Offices() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!editingOffice && formData.password.length < 8) {
-      toast({ title: "كلمة المرور يجب أن تكون 8 أحرف على الأقل", variant: "destructive" });
-      return;
-    }
     
     const subscriptionStart = formData.subscriptionStart || dateOnly(new Date());
     const subscriptionEnd = formData.subscriptionEnd || (formData.subscriptionStatus === "trial" ? addDays(subscriptionStart, 14) : null);
@@ -166,7 +177,7 @@ export default function Offices() {
     if (editingOffice) {
       updateMutation.mutate({ id: editingOffice.id, data: payload });
     } else {
-      createMutation.mutate({ data: { ...payload, password: formData.password } });
+      createMutation.mutate({ data: payload });
     }
   };
 
@@ -228,18 +239,8 @@ export default function Offices() {
                 </div>
 
                 {!editingOffice && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password">كلمة مرور مدير المكتب *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      dir="ltr"
-                      minLength={8}
-                      required
-                      value={formData.password}
-                      onChange={e => setFormData({...formData, password: e.target.value})}
-                    />
-                    <p className="text-xs text-muted-foreground">سيتم إنشاء حساب office_admin بهذا البريد وهذه كلمة المرور.</p>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">
+                    سيتم إنشاء حساب مدير المكتب وإصدار رابط دعوة آمن لتعيين كلمة المرور.
                   </div>
                 )}
 
@@ -285,6 +286,31 @@ export default function Offices() {
             </DialogContent>
           </Dialog>
         </div>
+
+        <Dialog open={isInviteDialogOpen} onOpenChange={setIsInviteDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]" dir="rtl">
+            <DialogHeader>
+              <DialogTitle>رابط دعوة مدير المكتب</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                أرسل هذا الرابط لمدير المكتب ليقوم بتعيين كلمة المرور وتفعيل الحساب.
+              </p>
+              <div className="flex gap-2">
+                <Input dir="ltr" readOnly value={latestInvite?.inviteUrl || ""} className="text-xs" />
+                <Button type="button" onClick={copyInviteLink} className="gap-2">
+                  <Copy className="w-4 h-4" />
+                  نسخ
+                </Button>
+              </div>
+              {latestInvite?.inviteExpiresAt && (
+                <p className="text-xs text-muted-foreground" dir="ltr">
+                  Expires: {new Date(latestInvite.inviteExpiresAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="bg-card border border-border rounded-lg shadow-sm">
           <div className="p-4 border-b border-border flex items-center gap-4">
