@@ -9,10 +9,38 @@ import { apiResponseEnvelope, errorHandler, fail, notFoundHandler } from "./lib/
 
 const app: Express = express();
 
-const allowedOrigins = (process.env["FRONTEND_URL"] || "http://localhost:5173")
+function normalizeOrigin(origin: string): string {
+  return origin.trim().replace(/\/$/, "");
+}
+
+function wildcardOriginToRegExp(origin: string): RegExp | null {
+  const normalized = normalizeOrigin(origin);
+  if (!normalized.includes("*")) return null;
+
+  const escaped = normalized
+    .replace(/[|\\{}()[\]^$+?.]/g, "\\$&")
+    .replace(/\*/g, "[^/]+?");
+
+  return new RegExp(`^${escaped}$`);
+}
+
+const configuredOrigins = (process.env["FRONTEND_URL"] || "http://localhost:5173")
   .split(",")
-  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .map(normalizeOrigin)
   .filter(Boolean);
+
+const allowedOrigins = configuredOrigins.filter((origin) => !origin.includes("*"));
+const allowedOriginPatterns = configuredOrigins
+  .map(wildcardOriginToRegExp)
+  .filter((pattern): pattern is RegExp => pattern !== null);
+
+function isOriginAllowed(origin: string): boolean {
+  const normalizedOrigin = normalizeOrigin(origin);
+  return (
+    allowedOrigins.includes(normalizedOrigin) ||
+    allowedOriginPatterns.some((pattern) => pattern.test(normalizedOrigin))
+  );
+}
 
 app.set("trust proxy", 1);
 
@@ -24,9 +52,9 @@ const corsOptions: CorsOptions = {
       return;
     }
 
-    const normalizedOrigin = origin.trim().replace(/\/$/, "");
+    const normalizedOrigin = normalizeOrigin(origin);
 
-    if (allowedOrigins.includes(normalizedOrigin)) {
+    if (isOriginAllowed(normalizedOrigin)) {
       callback(null, true);
       return;
     }
@@ -35,6 +63,7 @@ const corsOptions: CorsOptions = {
       {
         origin: normalizedOrigin,
         allowedOrigins,
+        allowedOriginPatterns: allowedOriginPatterns.map((pattern) => pattern.source),
       },
       "CORS blocked origin",
     );
