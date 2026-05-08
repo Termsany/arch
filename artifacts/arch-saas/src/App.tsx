@@ -8,6 +8,7 @@ import { ClientAuthProvider, useClientAuth } from "@/hooks/use-client-auth";
 import { Loader2 } from "lucide-react";
 import Home from "./pages/home";
 import Login from "./pages/login";
+import ActivateInvite from "./pages/activate-invite";
 import Dashboard from "./pages/dashboard";
 import Pricing from "./pages/pricing";
 import Start from "./pages/start";
@@ -90,6 +91,7 @@ function Router() {
         {() => <ClientProtectedRoute component={ClientPortalDashboard} />}
       </Route>
       <Route path="/login" component={Login} />
+      <Route path="/set-password" component={ActivateInvite} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/start" component={Start} />
       <Route path="/" component={Home} />
