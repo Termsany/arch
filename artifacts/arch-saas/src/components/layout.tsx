@@ -1,12 +1,12 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle, ScrollText, Languages } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
 import { NotificationBell } from "@/components/notification-bell";
 import { useTranslation } from "@/i18n/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const ALL_NAV_ITEMS = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, superAdminOnly: false, officeOnly: false },
@@ -24,28 +24,6 @@ const ALL_NAV_ITEMS = [
   { href: "/offices", labelKey: "nav.offices", icon: Building2, superAdminOnly: true, officeOnly: false },
   { href: "/pricing", labelKey: "nav.pricing", icon: Tag, superAdminOnly: false, officeOnly: false },
 ] as const;
-
-function LanguageSwitcher() {
-  const { language, setLanguage, languages, t } = useTranslation();
-
-  return (
-    <div className="flex items-center gap-2">
-      <Languages className="w-4 h-4 text-muted-foreground" />
-      <Select value={language} onValueChange={(value) => setLanguage(value as any)}>
-        <SelectTrigger className="w-[130px] h-9">
-          <SelectValue placeholder={t("language.label")} />
-        </SelectTrigger>
-        <SelectContent>
-          {languages.map((item) => (
-            <SelectItem key={item.code} value={item.code}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
 
 function NavLinks({ onClick }: { onClick?: () => void }) {
   const [location] = useLocation();

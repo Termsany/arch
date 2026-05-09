@@ -24,22 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/i18n/language-context";
 import type { TranslationKey } from "@/i18n/translations";
-
-const PROJECT_STATUSES = [
-  { value: "جديد", labelKey: "project.status.new" },
-  { value: "جاري", labelKey: "project.status.inProgress" },
-  { value: "في انتظار موافقة العميل", labelKey: "project.status.waitingApproval" },
-  { value: "يحتاج تعديل", labelKey: "project.status.needsRevision" },
-  { value: "مكتمل", labelKey: "project.status.completed" },
-] satisfies Array<{ value: string; labelKey: TranslationKey }>;
-
-const DESIGN_TYPES = [
-  { value: "تصميم داخلي", labelKey: "project.design.interior" },
-  { value: "تصميم معماري", labelKey: "project.design.architecture" },
-  { value: "تصميم واجهات", labelKey: "project.design.facades" },
-  { value: "تصميم وتنفيذ كامل", labelKey: "project.design.fullDesignBuild" },
-  { value: "تشطيب كامل", labelKey: "project.design.fullFinishing" },
-] satisfies Array<{ value: string; labelKey: TranslationKey }>;
+import { DEFAULT_DESIGN_TYPE, DEFAULT_PROJECT_STATUS, DESIGN_TYPES, PROJECT_STATUSES } from "@/lib/project-options";
 
 function translatedOption(value: string | null | undefined, options: Array<{ value: string; labelKey: TranslationKey }>, t: (key: TranslationKey) => string) {
   const option = options.find((item) => item.value === value);
@@ -59,10 +44,10 @@ export default function Projects() {
   const [formData, setFormData] = useState({
     clientId: "",
     projectName: "",
-    designType: "تصميم داخلي",
+    designType: DEFAULT_DESIGN_TYPE,
     areaMeters: "",
     pricePerMeter: "",
-    projectStatus: "جديد",
+    projectStatus: DEFAULT_PROJECT_STATUS,
     startDate: "",
     notes: ""
   });
@@ -105,10 +90,10 @@ export default function Projects() {
     setFormData({
       clientId: "",
       projectName: "",
-      designType: "تصميم داخلي",
+      designType: DEFAULT_DESIGN_TYPE,
       areaMeters: "",
       pricePerMeter: "",
-      projectStatus: "جديد",
+      projectStatus: DEFAULT_PROJECT_STATUS,
       startDate: "",
       notes: ""
     });
@@ -355,7 +340,7 @@ export default function Projects() {
                       <TableCell>{project.clientName}</TableCell>
                       <TableCell className="text-muted-foreground">{translatedOption(project.designType, DESIGN_TYPES, t)}</TableCell>
                       <TableCell>
-                        <Badge variant={project.projectStatus === 'مكتمل' ? 'default' : 'secondary'} className="font-normal">
+                        <Badge variant={project.projectStatus === DEFAULT_PROJECT_STATUS ? 'secondary' : project.projectStatus === PROJECT_STATUSES[4]?.value ? 'default' : 'secondary'} className="font-normal">
                           {translatedOption(project.projectStatus, PROJECT_STATUSES, t)}
                         </Badge>
                       </TableCell>

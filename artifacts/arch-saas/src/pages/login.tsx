@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Building2, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function Login() {
   const { login, isLoading } = useAuth();
@@ -30,6 +31,9 @@ export default function Login() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background p-4" dir={direction}>
+      <div className="fixed top-4 end-4 z-20">
+        <LanguageSwitcher compact />
+      </div>
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
       
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-border/50 bg-card/80 backdrop-blur-sm">

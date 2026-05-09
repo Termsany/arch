@@ -57,7 +57,7 @@ function getErrorMessage(error: unknown): string {
   const message = (error as { message?: unknown } | null)?.message;
   if (typeof message === "string" && message.trim()) return message;
 
-  return "حدث خطأ حاول مرة أخرى";
+  return "";
 }
 
 export default function Offices() {

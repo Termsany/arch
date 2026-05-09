@@ -6,8 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { useTranslation } from "@/i18n/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function ClientLogin() {
+  const { direction, t } = useTranslation();
   const { loginAsClient, isLoading } = useClientAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,26 +25,29 @@ export default function ClientLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/30" dir="rtl">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/30" dir={direction}>
+      <div className="fixed top-4 end-4 z-20">
+        <LanguageSwitcher compact />
+      </div>
       <div className="w-full max-w-md px-4">
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-4">
             <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-lg">A</div>
             <span className="text-2xl font-bold text-primary">ArchSaaS</span>
           </div>
-          <h1 className="text-xl font-semibold text-foreground">بوابة العملاء</h1>
-          <p className="text-muted-foreground mt-1 text-sm">سجّل دخولك لمتابعة مشاريعك</p>
+          <h1 className="text-xl font-semibold text-foreground">{t("clientLogin.title")}</h1>
+          <p className="text-muted-foreground mt-1 text-sm">{t("clientLogin.subtitle")}</p>
         </div>
 
         <Card className="shadow-lg border-border/50">
           <CardHeader className="pb-4">
-            <CardTitle className="text-lg">تسجيل الدخول</CardTitle>
-            <CardDescription>أدخل بيانات حسابك للوصول إلى بوابة العملاء</CardDescription>
+            <CardTitle className="text-lg">{t("clientLogin.formTitle")}</CardTitle>
+            <CardDescription>{t("clientLogin.description")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">البريد الإلكتروني</Label>
+                <Label htmlFor="email">{t("auth.email")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -55,7 +61,7 @@ export default function ClientLogin() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">كلمة المرور</Label>
+                <Label htmlFor="password">{t("auth.password")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -72,10 +78,10 @@ export default function ClientLogin() {
                 {isLoading ? (
                   <>
                     <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-                    جارٍ تسجيل الدخول...
+                    {t("clientLogin.loading")}
                   </>
                 ) : (
-                  "دخول"
+                  t("clientLogin.submit")
                 )}
               </Button>
             </form>
@@ -83,13 +89,13 @@ export default function ClientLogin() {
         </Card>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          هذه البوابة مخصصة للعملاء فقط.{" "}
-          <a href="/login" className="text-primary hover:underline">صفحة دخول المشرفين</a>
+          {t("clientLogin.onlyClients")}{" "}
+          <a href="/login" className="text-primary hover:underline">{t("clientLogin.adminLogin")}</a>
         </p>
         <div className="mt-3 text-center">
           <Link href="/" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
             <ArrowRight className="w-4 h-4" />
-            العودة لاختيار نوع الدخول
+            {t("auth.backHome")}
           </Link>
         </div>
       </div>

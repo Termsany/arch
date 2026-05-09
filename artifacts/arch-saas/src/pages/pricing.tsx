@@ -6,9 +6,10 @@ import { CheckCircle2, Star, Building2 } from "lucide-react";
 import { Link } from "wouter";
 import { useTranslation } from "@/i18n/language-context";
 import { setLocalizedMeta } from "@/i18n/seo";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 export default function Pricing() {
-  const { direction, language } = useTranslation();
+  const { direction, language, t, formatCurrency, formatNumber } = useTranslation();
   const { data: plans, isLoading } = useGetActivePlans();
 
   useEffect(() => {
@@ -24,11 +25,12 @@ export default function Pricing() {
             ArchSaaS
           </div>
           <div className="flex items-center gap-4">
+            <LanguageSwitcher compact />
             <Link href="/login">
-              <Button variant="ghost">تسجيل الدخول</Button>
+              <Button variant="ghost">{t("pricing.login")}</Button>
             </Link>
             <Link href="/start">
-              <Button>ابدأ الآن</Button>
+              <Button>{t("pricing.startNow")}</Button>
             </Link>
           </div>
         </div>
@@ -37,10 +39,10 @@ export default function Pricing() {
       <main className="container mx-auto px-4 py-24">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl mb-6">
-            اختار الخطة المناسبة لمكتبك
+            {t("pricing.title")}
           </h1>
           <p className="text-xl text-muted-foreground">
-            أسعار شفافة ومناسبة لجميع أحجام المكاتب الهندسية وشركات التصميم الداخلي
+            {t("pricing.subtitle")}
           </p>
         </div>
 
@@ -61,17 +63,17 @@ export default function Pricing() {
                   <div className="absolute -top-4 left-0 right-0 flex justify-center">
                     <span className="bg-primary text-primary-foreground text-sm font-medium px-4 py-1 rounded-full flex items-center gap-1">
                       <Star className="w-4 h-4 fill-current" />
-                      موصى بها
+                      {t("pricing.recommended")}
                     </span>
                   </div>
                 )}
                 
                 <CardHeader className="text-center pt-8">
-                  <CardTitle className="text-2xl">{plan.nameAr}</CardTitle>
+                  <CardTitle className="text-2xl">{language === "ar" ? plan.nameAr : plan.nameEn || plan.nameAr}</CardTitle>
                   <CardDescription className="mt-2 min-h-[40px]">{plan.descriptionAr}</CardDescription>
                   <div className="mt-6 flex justify-center items-baseline gap-1 text-5xl font-extrabold">
-                    <span dir="ltr">${plan.monthlyPrice}</span>
-                    <span className="text-xl text-muted-foreground font-normal">/شهر</span>
+                    <span dir="ltr">{formatCurrency(plan.monthlyPrice, "USD")}</span>
+                    <span className="text-xl text-muted-foreground font-normal">/{t("pricing.month")}</span>
                   </div>
                 </CardHeader>
                 
@@ -79,30 +81,30 @@ export default function Pricing() {
                   <ul className="space-y-4">
                     <li className="flex items-center gap-3">
                       <CheckCircle2 className="w-5 h-5 text-primary" />
-                      <span><strong dir="ltr">{plan.maxProjects}</strong> مشروع</span>
+                      <span><strong dir="ltr">{formatNumber(plan.maxProjects)}</strong> {t("pricing.projects")}</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <CheckCircle2 className="w-5 h-5 text-primary" />
-                      <span><strong dir="ltr">{plan.maxClients}</strong> عميل</span>
+                      <span><strong dir="ltr">{formatNumber(plan.maxClients)}</strong> {t("pricing.clients")}</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <CheckCircle2 className="w-5 h-5 text-primary" />
-                      <span><strong dir="ltr">{plan.maxUsers}</strong> مستخدم</span>
+                      <span><strong dir="ltr">{formatNumber(plan.maxUsers)}</strong> {t("pricing.users")}</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <CheckCircle2 className="w-5 h-5 text-primary" />
-                      <span dir="ltr">{plan.storageLimitMb / 1024} GB</span> مساحة تخزين
+                      <span dir="ltr">{formatNumber(plan.storageLimitMb / 1024)} GB</span> {t("pricing.storage")}
                     </li>
                     {plan.hasClientPortal && (
                       <li className="flex items-center gap-3">
                         <CheckCircle2 className="w-5 h-5 text-primary" />
-                        <span>بوابة للعملاء</span>
+                        <span>{t("pricing.clientPortal")}</span>
                       </li>
                     )}
                     {plan.hasWhatsappNotifications && (
                       <li className="flex items-center gap-3">
                         <CheckCircle2 className="w-5 h-5 text-primary" />
-                        <span>إشعارات واتساب</span>
+                        <span>{t("pricing.whatsapp")}</span>
                       </li>
                     )}
                   </ul>
@@ -111,7 +113,7 @@ export default function Pricing() {
                 <CardFooter className="pb-8">
                   <Link href="/start" className="w-full">
                     <Button className="w-full h-12 text-lg" variant={plan.isRecommended ? "default" : "outline"}>
-                      ابدأ الآن
+                      {t("pricing.startNow")}
                     </Button>
                   </Link>
                 </CardFooter>

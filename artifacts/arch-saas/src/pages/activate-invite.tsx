@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Building2, CheckCircle2 } from "lucide-react";
 import { useTranslation } from "@/i18n/language-context";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "message" in error) {
@@ -16,7 +17,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-async function activateInvite(inviteCode: string, newSecret: string): Promise<void> {
+async function activateInvite(inviteCode: string, newSecret: string, fallbackMessage: string): Promise<void> {
   const response = await fetch("/api/invites/accept", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -26,7 +27,7 @@ async function activateInvite(inviteCode: string, newSecret: string): Promise<vo
   const data = await response.json().catch(() => null) as { message?: string } | null;
 
   if (!response.ok) {
-    throw new Error(data?.message || "تعذر تفعيل الحساب");
+    throw new Error(data?.message || fallbackMessage);
   }
 }
 
@@ -59,7 +60,7 @@ export default function ActivateInvite() {
 
     setIsSubmitting(true);
     try {
-      await activateInvite(inviteCode, secret);
+      await activateInvite(inviteCode, secret, t("error.tryAgain"));
       setIsDone(true);
       toast({ title: t("toast.accountActivated") });
     } catch (error) {
@@ -71,6 +72,9 @@ export default function ActivateInvite() {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background p-4" dir={direction}>
+      <div className="fixed top-4 end-4 z-20">
+        <LanguageSwitcher compact />
+      </div>
       <Card className="w-full max-w-md shadow-2xl border-border/50 bg-card/90 backdrop-blur-sm">
         <CardHeader className="space-y-3 text-center pb-6">
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
