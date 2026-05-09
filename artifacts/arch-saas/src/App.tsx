@@ -32,6 +32,8 @@ import NotFound from "@/pages/not-found";
 import ClientLogin from "./pages/client-login";
 import ClientPortalDashboard from "./pages/client-portal-dashboard";
 import ClientProjectDetails from "./pages/client-project-details";
+import AdminCredentials from "./pages/admin-credentials";
+import ChangePasswordRequired from "./pages/change-password-required";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -94,6 +96,9 @@ function Router() {
       <Route path="/set-password" component={ActivateInvite} />
       <Route path="/pricing" component={Pricing} />
       <Route path="/start" component={Start} />
+      <Route path="/change-password-required">
+        {() => <ProtectedRoute component={ChangePasswordRequired} />}
+      </Route>
       <Route path="/" component={Home} />
       <Route path="/dashboard">
         {() => <ProtectedRoute component={Dashboard} />}
@@ -136,6 +141,9 @@ function Router() {
       </Route>
       <Route path="/offices">
         {() => <ProtectedRoute component={Offices} />}
+      </Route>
+      <Route path="/admin/credentials">
+        {() => <ProtectedRoute component={AdminCredentials} />}
       </Route>
       <Route path="/boq-library">
         {() => <ProtectedRoute component={BOQLibrary} />}

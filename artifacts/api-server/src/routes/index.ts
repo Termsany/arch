@@ -23,6 +23,7 @@ import whatsappRouter from "./whatsapp";
 import auditLogsRouter from "./audit-logs";
 import invitesRouter from "./invites";
 import officeModulesRouter from "./office-modules";
+import adminUsersRouter from "./admin-users";
 
 const router: IRouter = Router();
 
@@ -30,6 +31,7 @@ router.use(healthRouter);
 router.use(authRouter);
 router.use(invitesRouter);
 router.use(officeModulesRouter);
+router.use(adminUsersRouter);
 router.use(clientPortalRouter);
 router.use(filesRouter);
 router.use(dashboardRouter);

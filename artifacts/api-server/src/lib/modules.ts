@@ -12,12 +12,13 @@ export const ALL_APP_MODULES = [
   "subscription",
   "plans",
   "offices",
+  "credentials",
   "pricing",
 ] as const;
 
 export type AppModuleKey = typeof ALL_APP_MODULES[number];
 
-export const SUPER_ADMIN_MODULES = ["plans", "offices"] as const;
+export const SUPER_ADMIN_MODULES = ["plans", "offices", "credentials"] as const;
 
 export const DEFAULT_OFFICE_MODULES: AppModuleKey[] = [
   "dashboard",

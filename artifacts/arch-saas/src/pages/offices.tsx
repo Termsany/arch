@@ -17,9 +17,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Search, Building2, Copy, Settings2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Building2, Copy, Settings2, KeyRound } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AdminPasswordResetForm } from "@/components/admin-password-reset-form";
 import { useTranslation } from "@/i18n/language-context";
 import type { TranslationKey } from "@/i18n/translations";
 import { OFFICE_CONTROLLED_MODULES, APP_MODULES, type AppModuleKey } from "@/lib/modules";
@@ -73,7 +74,9 @@ export default function Offices() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [modulesDialogOpen, setModulesDialogOpen] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [modulesOffice, setModulesOffice] = useState<{ id: number; officeName: string } | null>(null);
+  const [passwordOffice, setPasswordOffice] = useState<{ officeName: string; email: string } | null>(null);
   const [moduleSelection, setModuleSelection] = useState<AppModuleKey[]>([]);
   const [modulesLoading, setModulesLoading] = useState(false);
   const [modulesSaving, setModulesSaving] = useState(false);
@@ -165,6 +168,11 @@ export default function Offices() {
     } finally {
       setModulesLoading(false);
     }
+  };
+
+  const openPasswordDialog = (office: { officeName: string; email?: string | null }) => {
+    setPasswordOffice({ officeName: office.officeName, email: office.email || "" });
+    setPasswordDialogOpen(true);
   };
 
   const toggleModule = (moduleKey: AppModuleKey, checked: boolean) => {
@@ -401,6 +409,23 @@ export default function Offices() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+          <DialogContent className="sm:max-w-[620px]" dir={direction}>
+            <DialogHeader>
+              <DialogTitle>{t("adminCredentials.resetOfficeAdmin")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {passwordOffice?.officeName && (
+                <p className="text-sm text-muted-foreground">{passwordOffice.officeName}</p>
+              )}
+              <AdminPasswordResetForm
+                initialEmail={passwordOffice?.email ?? ""}
+                onSuccess={() => setPasswordDialogOpen(false)}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="bg-card border border-border rounded-lg shadow-sm">
           <div className="p-4 border-b border-border flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -479,6 +504,9 @@ export default function Offices() {
                         <div className="flex items-center gap-1 justify-end">
                           <Button variant="ghost" size="icon" onClick={() => openModulesDialog({ id: office.id, officeName: office.officeName })} title={t("modules.manage")}>
                             <Settings2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openPasswordDialog({ officeName: office.officeName, email: office.email })} title={t("adminCredentials.resetOfficeAdmin")}>
+                            <KeyRound className="w-4 h-4 text-muted-foreground" />
                           </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(office)} title={t("common.edit")}>
                             <Edit2 className="w-4 h-4 text-primary" />

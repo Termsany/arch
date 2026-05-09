@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle, ScrollText } from "lucide-react";
+import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle, ScrollText, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useEffect, useState } from "react";
@@ -24,6 +24,7 @@ const MODULE_ICONS = {
   subscription: BadgeCheck,
   plans: CreditCard,
   offices: Building2,
+  credentials: KeyRound,
   pricing: Tag,
 } satisfies Record<AppModuleKey, typeof LayoutDashboard>;
 

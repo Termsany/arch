@@ -28,6 +28,7 @@ type LoginResponseShape = {
 
 type LocalizedUser = User & {
   preferredLanguage?: string | null;
+  mustChangePassword?: boolean | null;
   office?: {
     defaultLanguage?: string | null;
     currency?: string | null;
@@ -72,7 +73,7 @@ function isTokenExpired(token: string | null): boolean {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { language, setLanguage, t } = useTranslation();
   const hydratedLanguageUserId = useRef<number | null>(null);
@@ -102,6 +103,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hydratedLanguageUserId.current = localizedUser.id;
     if (preferredLanguage !== language) setLanguage(preferredLanguage);
   }, [user, language, setLanguage]);
+
+  useEffect(() => {
+    const localizedUser = user as LocalizedUser | null | undefined;
+    if (!localizedUser?.mustChangePassword) return;
+    if (location === "/change-password-required") return;
+    setLocation("/change-password-required");
+  }, [user, location, setLocation]);
 
   useEffect(() => {
     if (!token) return;
@@ -173,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setToken(loginData.token);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
         toast({ title: t("auth.login.success") });
-        setLocation("/dashboard");
+        setLocation((loginData.user as LocalizedUser).mustChangePassword ? "/change-password-required" : "/dashboard");
       },
       onError: (error) => {
         toast({

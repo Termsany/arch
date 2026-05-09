@@ -19,6 +19,7 @@ export type AuthUser = {
   officeId: number | null;
   clientId: number | null;
   preferredLanguage?: string | null;
+  mustChangePassword?: boolean;
 };
 
 export function hashPassword(password: string): Promise<string> {

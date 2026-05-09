@@ -14,6 +14,7 @@ export const APP_MODULE_KEYS = [
   "subscription",
   "plans",
   "offices",
+  "credentials",
   "pricing",
 ] as const;
 
@@ -42,6 +43,7 @@ export const APP_MODULES: AppModule[] = [
   { key: "subscription", href: "/subscription", labelKey: "modules.subscription", superAdminOnly: false, officeOnly: true },
   { key: "plans", href: "/plans", labelKey: "nav.plans", superAdminOnly: true, officeOnly: false },
   { key: "offices", href: "/offices", labelKey: "nav.offices", superAdminOnly: true, officeOnly: false },
+  { key: "credentials", href: "/admin/credentials", labelKey: "nav.credentials", superAdminOnly: true, officeOnly: false },
   { key: "pricing", href: "/pricing", labelKey: "modules.pricing", superAdminOnly: false, officeOnly: false },
 ];
 

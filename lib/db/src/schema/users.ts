@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
+import { boolean, pgTable, serial, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -13,6 +13,8 @@ export const usersTable = pgTable("users", {
   inviteTokenHash: text("invite_token_hash"),
   inviteExpiresAt: timestamp("invite_expires_at"),
   passwordSetAt: timestamp("password_set_at"),
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
+  passwordChangedAt: timestamp("password_changed_at"),
   officeId: integer("office_id"),
   clientId: integer("client_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
