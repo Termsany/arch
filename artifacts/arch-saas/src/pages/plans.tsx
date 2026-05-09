@@ -22,8 +22,10 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Edit2, Trash2, Star, CheckCircle2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useTranslation } from "@/i18n/language-context";
 
 export default function Plans() {
+  const { t, direction, formatCurrency, formatNumber } = useTranslation();
   const queryClient = useQueryClient();
   const { data: plans, isLoading } = useGetPlans();
   
@@ -54,11 +56,11 @@ export default function Plans() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetPlansQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -66,11 +68,11 @@ export default function Plans() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetPlansQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -78,9 +80,9 @@ export default function Plans() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetPlansQueryKey() });
-        toast({ title: "تم الحذف بنجاح" });
+        toast({ title: t("toast.deleted") });
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -88,7 +90,7 @@ export default function Plans() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetPlansQueryKey() });
-        toast({ title: "تم تغيير حالة الخطة" });
+        toast({ title: t("plans.statusChanged") });
       }
     }
   });
@@ -97,7 +99,7 @@ export default function Plans() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetPlansQueryKey() });
-        toast({ title: "تم تحديث الخطة الموصى بها" });
+        toast({ title: t("plans.recommendedUpdated") });
       }
     }
   });
@@ -144,11 +146,11 @@ export default function Plans() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" dir={direction}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">خطط الاشتراك</h1>
-            <p className="text-muted-foreground mt-1">إدارة باقات التسعير والمميزات</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("plans.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("plans.subtitle")}</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -158,82 +160,82 @@ export default function Plans() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
-                إضافة خطة
+                {t("plans.add")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" dir="rtl">
+            <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto" dir={direction}>
               <DialogHeader>
-                <DialogTitle>{editingPlan ? "تعديل خطة الاشتراك" : "إضافة خطة جديدة"}</DialogTitle>
+                <DialogTitle>{editingPlan ? t("plans.edit") : t("plans.create")}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-6 mt-4">
                 <div className="space-y-4 border-b pb-4">
-                  <h3 className="font-semibold text-lg">البيانات الأساسية</h3>
+                  <h3 className="font-semibold text-lg">{t("plans.basicInfo")}</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="nameAr">الاسم (عربي) *</Label>
+                      <Label htmlFor="nameAr">{t("plans.nameAr")} *</Label>
                       <Input required value={formData.nameAr} onChange={e => setFormData({...formData, nameAr: e.target.value})} />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="nameEn">الاسم (انجليزي)</Label>
+                      <Label htmlFor="nameEn">{t("plans.nameEn")}</Label>
                       <Input value={formData.nameEn || ""} onChange={e => setFormData({...formData, nameEn: e.target.value})} dir="ltr"/>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="descriptionAr">الوصف</Label>
+                    <Label htmlFor="descriptionAr">{t("plans.description")}</Label>
                     <Textarea value={formData.descriptionAr || ""} onChange={e => setFormData({...formData, descriptionAr: e.target.value})} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>السعر الشهري ($)</Label>
+                      <Label>{t("plans.monthlyPrice")}</Label>
                       <Input type="number" required value={formData.monthlyPrice} onChange={e => setFormData({...formData, monthlyPrice: parseFloat(e.target.value)})} dir="ltr"/>
                     </div>
                     <div className="space-y-2">
-                      <Label>السعر السنوي ($)</Label>
+                      <Label>{t("plans.yearlyPrice")}</Label>
                       <Input type="number" required value={formData.yearlyPrice} onChange={e => setFormData({...formData, yearlyPrice: parseFloat(e.target.value)})} dir="ltr"/>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4 border-b pb-4">
-                  <h3 className="font-semibold text-lg">حدود الاستخدام</h3>
+                  <h3 className="font-semibold text-lg">{t("plans.usageLimits")}</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label>المستخدمين</Label>
+                      <Label>{t("plans.users")}</Label>
                       <Input type="number" required value={formData.maxUsers} onChange={e => setFormData({...formData, maxUsers: parseInt(e.target.value)})} dir="ltr"/>
                     </div>
                     <div className="space-y-2">
-                      <Label>المشاريع</Label>
+                      <Label>{t("plans.projects")}</Label>
                       <Input type="number" required value={formData.maxProjects} onChange={e => setFormData({...formData, maxProjects: parseInt(e.target.value)})} dir="ltr"/>
                     </div>
                     <div className="space-y-2">
-                      <Label>العملاء</Label>
+                      <Label>{t("plans.clients")}</Label>
                       <Input type="number" required value={formData.maxClients} onChange={e => setFormData({...formData, maxClients: parseInt(e.target.value)})} dir="ltr"/>
                     </div>
                     <div className="space-y-2">
-                      <Label>التخزين (MB)</Label>
+                      <Label>{t("plans.storageMb")}</Label>
                       <Input type="number" required value={formData.storageLimitMb} onChange={e => setFormData({...formData, storageLimitMb: parseInt(e.target.value)})} dir="ltr"/>
                     </div>
                   </div>
                 </div>
 
                 <div className="space-y-4 border-b pb-4">
-                  <h3 className="font-semibold text-lg">المميزات الإضافية</h3>
+                  <h3 className="font-semibold text-lg">{t("plans.extraFeatures")}</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex items-center space-x-2 space-x-reverse">
                       <Checkbox id="portal" checked={formData.hasClientPortal} onCheckedChange={c => setFormData({...formData, hasClientPortal: !!c})} />
-                      <Label htmlFor="portal" className="cursor-pointer">بوابة العملاء</Label>
+                      <Label htmlFor="portal" className="cursor-pointer">{t("plans.clientPortal")}</Label>
                     </div>
                     <div className="flex items-center space-x-2 space-x-reverse">
                       <Checkbox id="whatsapp" checked={formData.hasWhatsappNotifications} onCheckedChange={c => setFormData({...formData, hasWhatsappNotifications: !!c})} />
-                      <Label htmlFor="whatsapp" className="cursor-pointer">إشعارات واتساب</Label>
+                      <Label htmlFor="whatsapp" className="cursor-pointer">{t("plans.whatsappNotifications")}</Label>
                     </div>
                     <div className="flex items-center space-x-2 space-x-reverse">
                       <Checkbox id="roles" checked={formData.hasTeamRoles} onCheckedChange={c => setFormData({...formData, hasTeamRoles: !!c})} />
-                      <Label htmlFor="roles" className="cursor-pointer">صلاحيات الفريق</Label>
+                      <Label htmlFor="roles" className="cursor-pointer">{t("plans.teamRoles")}</Label>
                     </div>
                     <div className="flex items-center space-x-2 space-x-reverse">
                       <Checkbox id="est" checked={formData.hasAdvancedEstimates} onCheckedChange={c => setFormData({...formData, hasAdvancedEstimates: !!c})} />
-                      <Label htmlFor="est" className="cursor-pointer">مقايسات متقدمة</Label>
+                      <Label htmlFor="est" className="cursor-pointer">{t("plans.advancedEstimates")}</Label>
                     </div>
                   </div>
                 </div>
@@ -241,10 +243,10 @@ export default function Plans() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2 space-x-reverse">
                     <Switch id="active" checked={formData.isActive} onCheckedChange={c => setFormData({...formData, isActive: c})} />
-                    <Label htmlFor="active" className="cursor-pointer">تفعيل الخطة</Label>
+                    <Label htmlFor="active" className="cursor-pointer">{t("plans.activatePlan")}</Label>
                   </div>
                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    حفظ البيانات
+                    {t("plans.saveData")}
                   </Button>
                 </div>
               </form>
@@ -264,7 +266,7 @@ export default function Plans() {
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
                     <span className="bg-secondary text-secondary-foreground text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1 shadow-sm">
                       <Star className="w-3 h-3 fill-current" />
-                      موصى بها
+                      {t("plans.recommended")}
                     </span>
                   </div>
                 )}
@@ -274,10 +276,10 @@ export default function Plans() {
                     <Switch 
                       checked={plan.isActive} 
                       onCheckedChange={() => toggleActiveMutation.mutate({ id: plan.id })}
-                      title={plan.isActive ? "إيقاف" : "تفعيل"}
+                      title={plan.isActive ? t("plans.disable") : t("plans.enable")}
                     />
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setRecommendedMutation.mutate({ id: plan.id })} title="تعيين كموصى بها">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setRecommendedMutation.mutate({ id: plan.id })} title={t("plans.setRecommended")}>
                         <Star className={`w-4 h-4 ${plan.isRecommended ? 'text-secondary fill-secondary' : 'text-muted-foreground'}`} />
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEdit(plan)}>
@@ -289,14 +291,14 @@ export default function Plans() {
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent dir="rtl">
+                        <AlertDialogContent dir={direction}>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>حذف الخطة</AlertDialogTitle>
-                            <AlertDialogDescription>هل أنت متأكد من حذف هذه الخطة؟ لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
+                            <AlertDialogTitle>{t("plans.deleteTitle")}</AlertDialogTitle>
+                            <AlertDialogDescription>{t("plans.deleteDescription")}</AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter className="gap-2 sm:gap-0">
-                            <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteMutation.mutate({ id: plan.id })} className="bg-destructive">حذف</AlertDialogAction>
+                            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => deleteMutation.mutate({ id: plan.id })} className="bg-destructive">{t("common.delete")}</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -304,8 +306,8 @@ export default function Plans() {
                   </div>
                   <CardTitle className="text-2xl">{plan.nameAr}</CardTitle>
                   <div className="mt-4 flex justify-center items-baseline gap-1 text-4xl font-bold text-primary">
-                    <span dir="ltr">${plan.monthlyPrice}</span>
-                    <span className="text-base text-muted-foreground font-normal">/شهر</span>
+                    <span dir="ltr">{formatCurrency(Number(plan.monthlyPrice || 0), "USD")}</span>
+                    <span className="text-base text-muted-foreground font-normal">/{t("plans.month")}</span>
                   </div>
                 </CardHeader>
                 
@@ -313,30 +315,30 @@ export default function Plans() {
                   <ul className="space-y-3 text-sm">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span>{plan.maxProjects} مشروع</span>
+                      <span>{formatNumber(plan.maxProjects)} {t("plans.projects")}</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span>{plan.maxClients} عميل</span>
+                      <span>{formatNumber(plan.maxClients)} {t("plans.clients")}</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span>{plan.maxUsers} مستخدم</span>
+                      <span>{formatNumber(plan.maxUsers)} {t("plans.users")}</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      <span dir="ltr">{plan.storageLimitMb / 1024} GB</span> مساحة تخزين
+                      <span dir="ltr">{formatNumber(Number(plan.storageLimitMb || 0) / 1024)} GB</span> {t("plans.storage")}
                     </li>
                     {plan.hasClientPortal && (
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        <span>بوابة للعملاء</span>
+                        <span>{t("plans.clientPortal")}</span>
                       </li>
                     )}
                     {plan.hasWhatsappNotifications && (
                       <li className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        <span>إشعارات واتساب</span>
+                        <span>{t("plans.whatsappNotifications")}</span>
                       </li>
                     )}
                   </ul>

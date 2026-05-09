@@ -27,19 +27,21 @@ import {
   type TaskStatus,
 } from "@/lib/tasks";
 import { toast } from "@/hooks/use-toast";
+import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
 
-const STATUS_LABELS: Record<TaskStatus, string> = {
-  todo: "مطلوب",
-  in_progress: "جاري العمل",
-  review: "مراجعة",
-  done: "مكتملة",
+const TASK_STATUS_KEYS: Record<TaskStatus, TranslationKey> = {
+  todo: "task.status.todo",
+  in_progress: "task.status.in_progress",
+  review: "task.status.review",
+  done: "task.status.done",
 };
 
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  low: "منخفضة",
-  medium: "متوسطة",
-  high: "عالية",
-  urgent: "عاجلة",
+const TASK_PRIORITY_KEYS: Record<TaskPriority, TranslationKey> = {
+  low: "task.priority.low",
+  medium: "task.priority.medium",
+  high: "task.priority.high",
+  urgent: "task.priority.urgent",
 };
 
 const emptyForm = {
@@ -54,6 +56,7 @@ const emptyForm = {
 };
 
 export default function TasksPage() {
+  const { t, direction, formatDate } = useTranslation();
   const { data: projects } = useGetProjects();
   const initialProjectId = new URLSearchParams(window.location.search).get("project_id") || "all";
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
@@ -72,7 +75,7 @@ export default function TasksPage() {
       const data = await fetchTasks(filters);
       setTasks(data);
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر تحميل المهام", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("tasks.loadError"), variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -121,12 +124,12 @@ export default function TasksPage() {
     try {
       if (editing) await updateTask(editing.id, payload);
       else await createTask(payload);
-      toast({ title: editing ? "تم تحديث المهمة" : "تم إنشاء المهمة" });
+      toast({ title: editing ? t("tasks.updateSuccess") : t("tasks.createSuccess") });
       setIsOpen(false);
       reset();
       load();
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر حفظ المهمة", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("tasks.saveError"), variant: "destructive" });
     }
   };
 
@@ -135,59 +138,59 @@ export default function TasksPage() {
       await updateTaskStatus(task.id, status);
       load();
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر تحديث الحالة", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("tasks.statusError"), variant: "destructive" });
     }
   };
 
   const remove = async (task: ProjectTask) => {
     try {
       await deleteTask(task.id);
-      toast({ title: "تم حذف المهمة" });
+      toast({ title: t("tasks.deleteSuccess") });
       load();
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر حذف المهمة", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("tasks.deleteError"), variant: "destructive" });
     }
   };
 
   return (
     <AppLayout>
-      <div className="space-y-6" dir="rtl">
+      <div className="space-y-6" dir={direction}>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">المهام</h1>
-            <p className="text-muted-foreground mt-1">تعيين وتتبع مهام المشاريع والمراحل</p>
+            <h1 className="text-3xl font-bold">{t("tasks.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("tasks.subtitle")}</p>
           </div>
           <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) reset(); }}>
             <DialogTrigger asChild>
-              <Button className="gap-2"><Plus className="w-4 h-4" />مهمة جديدة</Button>
+              <Button className="gap-2"><Plus className="w-4 h-4" />{t("tasks.new")}</Button>
             </DialogTrigger>
-            <DialogContent dir="rtl" className="sm:max-w-[560px]">
-              <DialogHeader><DialogTitle>{editing ? "تعديل المهمة" : "مهمة جديدة"}</DialogTitle></DialogHeader>
+            <DialogContent dir={direction} className="sm:max-w-[560px]">
+              <DialogHeader><DialogTitle>{editing ? t("tasks.edit") : t("tasks.new")}</DialogTitle></DialogHeader>
               <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label>عنوان المهمة *</Label>
+                  <Label>{t("tasks.titleField")} *</Label>
                   <Input required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
                 </div>
                 <div className="space-y-2">
-                  <Label>وصف المهمة</Label>
+                  <Label>{t("tasks.description")}</Label>
                   <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>المشروع *</Label>
+                    <Label>{t("tasks.project")} *</Label>
                     <Select value={form.projectId} onValueChange={(value) => setForm({ ...form, projectId: value, stageId: "none" })}>
-                      <SelectTrigger><SelectValue placeholder="اختر المشروع" /></SelectTrigger>
-                      <SelectContent dir="rtl">
+                      <SelectTrigger><SelectValue placeholder={t("tasks.selectProject")} /></SelectTrigger>
+                      <SelectContent dir={direction}>
                         {projects?.map((project) => <SelectItem key={project.id} value={String(project.id)}>{project.projectName}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>المرحلة</Label>
+                    <Label>{t("tasks.stage")}</Label>
                     <Select value={form.stageId} onValueChange={(value) => setForm({ ...form, stageId: value })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent dir="rtl">
-                        <SelectItem value="none">بدون مرحلة</SelectItem>
+                      <SelectContent dir={direction}>
+                        <SelectItem value="none">{t("tasks.noStage")}</SelectItem>
                         {stages?.map((stage) => <SelectItem key={stage.id} value={String(stage.id)}>{stage.stageName}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -195,43 +198,43 @@ export default function TasksPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>المسؤول</Label>
+                    <Label>{t("tasks.assignee")}</Label>
                     <Select value={form.assignedTo} onValueChange={(value) => setForm({ ...form, assignedTo: value })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent dir="rtl">
-                        <SelectItem value="none">بدون مسؤول</SelectItem>
+                      <SelectContent dir={direction}>
+                        <SelectItem value="none">{t("tasks.noAssignee")}</SelectItem>
                         {assignees.map((assignee) => <SelectItem key={assignee.id} value={String(assignee.id)}>{assignee.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>تاريخ التسليم</Label>
+                    <Label>{t("tasks.dueDate")}</Label>
                     <Input type="date" dir="ltr" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label>الحالة</Label>
+                    <Label>{t("tasks.status")}</Label>
                     <Select value={form.status} onValueChange={(value) => setForm({ ...form, status: value as TaskStatus })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent dir="rtl">
-                        {Object.entries(STATUS_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      <SelectContent dir={direction}>
+                        {(Object.keys(TASK_STATUS_KEYS) as TaskStatus[]).map((value) => <SelectItem key={value} value={value}>{t(TASK_STATUS_KEYS[value])}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>الأولوية</Label>
+                    <Label>{t("tasks.priority")}</Label>
                     <Select value={form.priority} onValueChange={(value) => setForm({ ...form, priority: value as TaskPriority })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent dir="rtl">
-                        {Object.entries(PRIORITY_LABELS).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                      <SelectContent dir={direction}>
+                        {(Object.keys(TASK_PRIORITY_KEYS) as TaskPriority[]).map((value) => <SelectItem key={value} value={value}>{t(TASK_PRIORITY_KEYS[value])}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>إلغاء</Button>
-                  <Button type="submit">حفظ</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>{t("common.cancel")}</Button>
+                  <Button type="submit">{t("common.save")}</Button>
                 </div>
               </form>
             </DialogContent>
@@ -241,40 +244,40 @@ export default function TasksPage() {
         <Card>
           <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-5 gap-3">
             <Select value={filters.project_id} onValueChange={(value) => setFilters({ ...filters, project_id: value })}>
-              <SelectTrigger><SelectValue placeholder="المشروع" /></SelectTrigger>
-              <SelectContent dir="rtl"><SelectItem value="all">كل المشاريع</SelectItem>{projects?.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.projectName}</SelectItem>)}</SelectContent>
+              <SelectTrigger><SelectValue placeholder={t("tasks.project")} /></SelectTrigger>
+              <SelectContent dir={direction}><SelectItem value="all">{t("tasks.allProjects")}</SelectItem>{projects?.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.projectName}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.assigned_to} onValueChange={(value) => setFilters({ ...filters, assigned_to: value })}>
-              <SelectTrigger><SelectValue placeholder="المسؤول" /></SelectTrigger>
-              <SelectContent dir="rtl"><SelectItem value="all">كل المسؤولين</SelectItem>{assignees.map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}</SelectContent>
+              <SelectTrigger><SelectValue placeholder={t("tasks.assignee")} /></SelectTrigger>
+              <SelectContent dir={direction}><SelectItem value="all">{t("tasks.allAssignees")}</SelectItem>{assignees.map((a) => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.status} onValueChange={(value) => setFilters({ ...filters, status: value })}>
-              <SelectTrigger><SelectValue placeholder="الحالة" /></SelectTrigger>
-              <SelectContent dir="rtl"><SelectItem value="all">كل الحالات</SelectItem>{Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              <SelectTrigger><SelectValue placeholder={t("tasks.status")} /></SelectTrigger>
+              <SelectContent dir={direction}><SelectItem value="all">{t("tasks.allStatuses")}</SelectItem>{(Object.keys(TASK_STATUS_KEYS) as TaskStatus[]).map((value) => <SelectItem key={value} value={value}>{t(TASK_STATUS_KEYS[value])}</SelectItem>)}</SelectContent>
             </Select>
             <Select value={filters.priority} onValueChange={(value) => setFilters({ ...filters, priority: value })}>
-              <SelectTrigger><SelectValue placeholder="الأولوية" /></SelectTrigger>
-              <SelectContent dir="rtl"><SelectItem value="all">كل الأولويات</SelectItem>{Object.entries(PRIORITY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+              <SelectTrigger><SelectValue placeholder={t("tasks.priority")} /></SelectTrigger>
+              <SelectContent dir={direction}><SelectItem value="all">{t("tasks.allPriorities")}</SelectItem>{(Object.keys(TASK_PRIORITY_KEYS) as TaskPriority[]).map((value) => <SelectItem key={value} value={value}>{t(TASK_PRIORITY_KEYS[value])}</SelectItem>)}</SelectContent>
             </Select>
-            <Button variant={filters.overdue ? "default" : "outline"} onClick={() => setFilters({ ...filters, overdue: !filters.overdue })}>المهام المتأخرة</Button>
+            <Button variant={filters.overdue ? "default" : "outline"} onClick={() => setFilters({ ...filters, overdue: !filters.overdue })}>{t("tasks.overdue")}</Button>
           </CardContent>
         </Card>
 
         {isLoading ? (
           <Skeleton className="h-72 w-full" />
         ) : tasks.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground border border-dashed rounded-lg">لا توجد مهام</div>
+          <div className="text-center py-16 text-muted-foreground border border-dashed rounded-lg">{t("tasks.empty")}</div>
         ) : (
           <div className="border rounded-lg overflow-hidden bg-card">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">عنوان المهمة</TableHead>
-                  <TableHead className="text-right">المشروع</TableHead>
-                  <TableHead className="text-right">المسؤول</TableHead>
-                  <TableHead className="text-right">الأولوية</TableHead>
-                  <TableHead className="text-right">تاريخ التسليم</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
+                  <TableHead className="text-start">{t("tasks.titleField")}</TableHead>
+                  <TableHead className="text-start">{t("tasks.project")}</TableHead>
+                  <TableHead className="text-start">{t("tasks.assignee")}</TableHead>
+                  <TableHead className="text-start">{t("tasks.priority")}</TableHead>
+                  <TableHead className="text-start">{t("tasks.dueDate")}</TableHead>
+                  <TableHead className="text-start">{t("tasks.status")}</TableHead>
                   <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
@@ -284,12 +287,12 @@ export default function TasksPage() {
                     <TableCell className="font-medium">{task.title}</TableCell>
                     <TableCell>{task.projectName}</TableCell>
                     <TableCell>{task.assignedToName || "-"}</TableCell>
-                    <TableCell><Badge variant="outline">{PRIORITY_LABELS[task.priority]}</Badge></TableCell>
-                    <TableCell dir="ltr">{task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-GB") : "-"}</TableCell>
+                    <TableCell><Badge variant="outline">{t(TASK_PRIORITY_KEYS[task.priority])}</Badge></TableCell>
+                    <TableCell dir="ltr">{task.dueDate ? formatDate(task.dueDate) : "-"}</TableCell>
                     <TableCell>
                       <Select value={task.status} onValueChange={(value) => setStatus(task, value as TaskStatus)}>
                         <SelectTrigger className="h-8 w-36"><SelectValue /></SelectTrigger>
-                        <SelectContent dir="rtl">{Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
+                        <SelectContent dir={direction}>{(Object.keys(TASK_STATUS_KEYS) as TaskStatus[]).map((value) => <SelectItem key={value} value={value}>{t(TASK_STATUS_KEYS[value])}</SelectItem>)}</SelectContent>
                       </Select>
                     </TableCell>
                     <TableCell>
@@ -297,9 +300,9 @@ export default function TasksPage() {
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(task)}><Edit2 className="w-4 h-4" /></Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><Trash2 className="w-4 h-4 text-destructive" /></Button></AlertDialogTrigger>
-                          <AlertDialogContent dir="rtl">
-                            <AlertDialogHeader><AlertDialogTitle>حذف المهمة؟</AlertDialogTitle><AlertDialogDescription>لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription></AlertDialogHeader>
-                            <AlertDialogFooter><AlertDialogCancel>إلغاء</AlertDialogCancel><AlertDialogAction onClick={() => remove(task)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">حذف</AlertDialogAction></AlertDialogFooter>
+                          <AlertDialogContent dir={direction}>
+                            <AlertDialogHeader><AlertDialogTitle>{t("tasks.deleteTitle")}</AlertDialogTitle><AlertDialogDescription>{t("common.deleteWarning")}</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => remove(task)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">{t("common.delete")}</AlertDialogAction></AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
                       </div>

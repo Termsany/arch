@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, Edit2, Trash2, BookOpen, Tag } from "lucide-react";
 import { parseApiResponse } from "@/lib/api-response";
+import { useTranslation } from "@/i18n/language-context";
 
 interface BoqCategory {
   id: number;
@@ -40,6 +41,7 @@ function authHeaders(): HeadersInit {
 }
 
 export default function BOQLibrary() {
+  const { t, direction, formatCurrency, formatNumber } = useTranslation();
   const [categories, setCategories] = useState<BoqCategory[]>([]);
   const [items, setItems] = useState<BoqItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +77,7 @@ export default function BOQLibrary() {
       setCategories(catRes.ok ? await parseApiResponse<BoqCategory[]>(catRes) : []);
       setItems(itemRes.ok ? await parseApiResponse<BoqItem[]>(itemRes) : []);
     } catch {
-      toast({ title: "تعذّر التحميل", variant: "destructive" });
+      toast({ title: t("common.loadError"), variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -95,18 +97,18 @@ export default function BOQLibrary() {
     setCatOpen(true);
   };
   const saveCat = async () => {
-    if (!catForm.name.trim()) { toast({ title: "اسم التصنيف مطلوب", variant: "destructive" }); return; }
+    if (!catForm.name.trim()) { toast({ title: t("boq.categoryRequired"), variant: "destructive" }); return; }
     setCatSaving(true);
     try {
       const url = editCat ? `/api/boq/categories/${editCat.id}` : "/api/boq/categories";
       const method = editCat ? "PUT" : "POST";
       const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(catForm) });
       await parseApiResponse(res);
-      toast({ title: editCat ? "تم تحديث التصنيف" : "تم إضافة التصنيف" });
+      toast({ title: editCat ? t("boq.categoryUpdated") : t("boq.categoryCreated") });
       setCatOpen(false);
       load();
     } catch {
-      toast({ title: "حدث خطأ", variant: "destructive" });
+      toast({ title: t("error.tryAgain"), variant: "destructive" });
     } finally {
       setCatSaving(false);
     }
@@ -114,10 +116,10 @@ export default function BOQLibrary() {
   const deleteCat = async (id: number) => {
     try {
       await parseApiResponse(await fetch(`/api/boq/categories/${id}`, { method: "DELETE", headers: authHeaders() }));
-      toast({ title: "تم حذف التصنيف" });
+      toast({ title: t("boq.categoryDeleted") });
       load();
     } catch {
-      toast({ title: "حدث خطأ", variant: "destructive" });
+      toast({ title: t("error.tryAgain"), variant: "destructive" });
     }
   };
 
@@ -142,22 +144,22 @@ export default function BOQLibrary() {
     setItemOpen(true);
   };
   const saveItem = async () => {
-    if (!itemForm.itemName.trim()) { toast({ title: "اسم البند مطلوب", variant: "destructive" }); return; }
+    if (!itemForm.itemName.trim()) { toast({ title: t("boq.itemRequired"), variant: "destructive" }); return; }
     setItemSaving(true);
     try {
       const url = editItem ? `/api/boq/library/${editItem.id}` : "/api/boq/library";
       const method = editItem ? "PUT" : "POST";
       const body = {
         ...itemForm,
-        categoryId: itemForm.categoryId ? parseInt(itemForm.categoryId) : null,
+        categoryId: itemForm.categoryId && itemForm.categoryId !== "none" ? parseInt(itemForm.categoryId) : null,
       };
       const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) });
       await parseApiResponse(res);
-      toast({ title: editItem ? "تم تحديث البند" : "تم إضافة البند للمكتبة" });
+      toast({ title: editItem ? t("boq.itemUpdated") : t("boq.itemCreated") });
       setItemOpen(false);
       load();
     } catch {
-      toast({ title: "حدث خطأ", variant: "destructive" });
+      toast({ title: t("error.tryAgain"), variant: "destructive" });
     } finally {
       setItemSaving(false);
     }
@@ -165,10 +167,10 @@ export default function BOQLibrary() {
   const deleteItem = async (id: number) => {
     try {
       await parseApiResponse(await fetch(`/api/boq/library/${id}`, { method: "DELETE", headers: authHeaders() }));
-      toast({ title: "تم حذف البند" });
+      toast({ title: t("boq.itemDeleted") });
       load();
     } catch {
-      toast({ title: "حدث خطأ", variant: "destructive" });
+      toast({ title: t("error.tryAgain"), variant: "destructive" });
     }
   };
 
@@ -180,21 +182,21 @@ export default function BOQLibrary() {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className="space-y-6 max-w-5xl mx-auto" dir={direction}>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">مكتبة المقايسة</h1>
-            <p className="text-muted-foreground mt-1">إدارة تصنيفات البنود ومكتبة الأسعار الافتراضية</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("boq.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("boq.subtitle")}</p>
           </div>
         </div>
 
         <Tabs defaultValue="items">
           <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 mb-6">
             <TabsTrigger value="items" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-12 px-6">
-              بنود المكتبة
+              {t("boq.itemsTab")}
             </TabsTrigger>
             <TabsTrigger value="categories" className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none h-12 px-6">
-              تصنيفات البنود
+              {t("boq.categoriesTab")}
             </TabsTrigger>
           </TabsList>
 
@@ -203,11 +205,11 @@ export default function BOQLibrary() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5" /> بنود المكتبة</CardTitle>
-                  <CardDescription>البنود الافتراضية مع التكاليف وهوامش الربح</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><BookOpen className="w-5 h-5" /> {t("boq.libraryItems")}</CardTitle>
+                  <CardDescription>{t("boq.libraryItemsDescription")}</CardDescription>
                 </div>
                 <Button size="sm" className="gap-2" onClick={openNewItem}>
-                  <Plus className="w-4 h-4" /> إضافة بند
+                  <Plus className="w-4 h-4" /> {t("boq.addItem")}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -216,7 +218,7 @@ export default function BOQLibrary() {
                 ) : items.length === 0 ? (
                   <div className="text-center py-14 text-muted-foreground border border-dashed rounded-lg">
                     <BookOpen className="w-8 h-8 mx-auto mb-3 opacity-40" />
-                    <p>لا توجد بنود في المكتبة بعد</p>
+                    <p>{t("boq.emptyItems")}</p>
                   </div>
                 ) : (
                   <div className="space-y-6 mt-2">
@@ -231,7 +233,7 @@ export default function BOQLibrary() {
                     {uncategorized.length > 0 && (
                       <div>
                         <h3 className="font-semibold text-sm text-muted-foreground mb-2 flex items-center gap-2">
-                          <Tag className="w-3.5 h-3.5" /> بدون تصنيف
+                          <Tag className="w-3.5 h-3.5" /> {t("boq.uncategorized")}
                         </h3>
                         <ItemRows items={uncategorized} onEdit={openEditItem} onDelete={deleteItem} />
                       </div>
@@ -247,11 +249,11 @@ export default function BOQLibrary() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
-                  <CardTitle className="flex items-center gap-2"><Tag className="w-5 h-5" /> تصنيفات البنود</CardTitle>
-                  <CardDescription>تنظيم بنود المقايسة ضمن تصنيفات</CardDescription>
+                  <CardTitle className="flex items-center gap-2"><Tag className="w-5 h-5" /> {t("boq.categories")}</CardTitle>
+                  <CardDescription>{t("boq.categoriesDescription")}</CardDescription>
                 </div>
                 <Button size="sm" className="gap-2" onClick={openNewCat}>
-                  <Plus className="w-4 h-4" /> إضافة تصنيف
+                  <Plus className="w-4 h-4" /> {t("boq.addCategory")}
                 </Button>
               </CardHeader>
               <CardContent>
@@ -260,7 +262,7 @@ export default function BOQLibrary() {
                 ) : categories.length === 0 ? (
                   <div className="text-center py-14 text-muted-foreground border border-dashed rounded-lg">
                     <Tag className="w-8 h-8 mx-auto mb-3 opacity-40" />
-                    <p>لا توجد تصنيفات بعد</p>
+                    <p>{t("boq.emptyCategories")}</p>
                   </div>
                 ) : (
                   <div className="space-y-2 mt-2">
@@ -271,7 +273,7 @@ export default function BOQLibrary() {
                           {cat.description && <p className="text-xs text-muted-foreground mt-0.5">{cat.description}</p>}
                         </div>
                         <Badge variant="outline" className="text-xs shrink-0">
-                          {items.filter(it => it.categoryId === cat.id).length} بند
+                          {formatNumber(items.filter(it => it.categoryId === cat.id).length)} {t("boq.itemsCount")}
                         </Badge>
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditCat(cat)}>
                           <Edit2 className="w-3.5 h-3.5" />
@@ -282,14 +284,14 @@ export default function BOQLibrary() {
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent dir="rtl">
+                          <AlertDialogContent dir={direction}>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>حذف التصنيف</AlertDialogTitle>
-                              <AlertDialogDescription>هل أنت متأكد من حذف تصنيف "{cat.name}"؟ لن تُحذف البنود المرتبطة به.</AlertDialogDescription>
+                              <AlertDialogTitle>{t("boq.deleteCategory")}</AlertDialogTitle>
+                              <AlertDialogDescription>{t("boq.deleteCategoryDescription")}</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter className="gap-2 sm:gap-0">
-                              <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteCat(cat.id)} className="bg-destructive">حذف</AlertDialogAction>
+                              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => deleteCat(cat.id)} className="bg-destructive">{t("common.delete")}</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -305,25 +307,25 @@ export default function BOQLibrary() {
 
       {/* ─── Category Dialog ─────────────────────────────────────────── */}
       <Dialog open={catOpen} onOpenChange={setCatOpen}>
-        <DialogContent dir="rtl" className="sm:max-w-[440px]">
+        <DialogContent dir={direction} className="sm:max-w-[440px]">
           <DialogHeader>
-            <DialogTitle>{editCat ? "تعديل التصنيف" : "إضافة تصنيف جديد"}</DialogTitle>
+            <DialogTitle>{editCat ? t("boq.editCategory") : t("boq.addNewCategory")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label>اسم التصنيف *</Label>
-              <Input value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} placeholder="مثال: أعمال الكهرباء" />
+              <Label>{t("boq.categoryName")} *</Label>
+              <Input value={catForm.name} onChange={e => setCatForm(f => ({ ...f, name: e.target.value }))} placeholder={t("boq.categoryNamePlaceholder")} />
             </div>
             <div className="space-y-2">
-              <Label>الوصف</Label>
+              <Label>{t("common.description")}</Label>
               <Textarea rows={2} value={catForm.description} onChange={e => setCatForm(f => ({ ...f, description: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>الترتيب</Label>
+              <Label>{t("boq.sortOrder")}</Label>
               <Input type="number" dir="ltr" value={catForm.sortOrder} onChange={e => setCatForm(f => ({ ...f, sortOrder: parseInt(e.target.value) || 0 }))} />
             </div>
             <Button className="w-full" onClick={saveCat} disabled={catSaving}>
-              {catSaving ? "جارٍ الحفظ..." : "حفظ"}
+              {catSaving ? t("common.saving") : t("common.save")}
             </Button>
           </div>
         </DialogContent>
@@ -331,22 +333,22 @@ export default function BOQLibrary() {
 
       {/* ─── Item Dialog ─────────────────────────────────────────────── */}
       <Dialog open={itemOpen} onOpenChange={setItemOpen}>
-        <DialogContent dir="rtl" className="sm:max-w-[560px]">
+        <DialogContent dir={direction} className="sm:max-w-[560px]">
           <DialogHeader>
-            <DialogTitle>{editItem ? "تعديل البند" : "إضافة بند للمكتبة"}</DialogTitle>
+            <DialogTitle>{editItem ? t("boq.editItem") : t("boq.addLibraryItem")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>اسم البند *</Label>
-                <Input value={itemForm.itemName} onChange={e => setItemForm(f => ({ ...f, itemName: e.target.value }))} placeholder="مثال: بلاط سيراميك" />
+                <Label>{t("boq.itemName")} *</Label>
+                <Input value={itemForm.itemName} onChange={e => setItemForm(f => ({ ...f, itemName: e.target.value }))} placeholder={t("boq.itemNamePlaceholder")} />
               </div>
               <div className="space-y-2">
-                <Label>التصنيف</Label>
+                <Label>{t("boq.category")}</Label>
                 <Select value={itemForm.categoryId} onValueChange={v => setItemForm(f => ({ ...f, categoryId: v }))}>
-                  <SelectTrigger><SelectValue placeholder="بدون تصنيف" /></SelectTrigger>
-                  <SelectContent dir="rtl">
-                    <SelectItem value="none">بدون تصنيف</SelectItem>
+                  <SelectTrigger><SelectValue placeholder={t("boq.uncategorized")} /></SelectTrigger>
+                  <SelectContent dir={direction}>
+                    <SelectItem value="none">{t("boq.uncategorized")}</SelectItem>
                     {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -354,47 +356,47 @@ export default function BOQLibrary() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>الوحدة (م٢، مقطوعية...)</Label>
+                <Label>{t("boq.unit")}</Label>
                 <Input value={itemForm.defaultUnit} onChange={e => setItemForm(f => ({ ...f, defaultUnit: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>نسبة الهالك %</Label>
+                <Label>{t("boq.wastePercentage")}</Label>
                 <Input type="number" step="0.5" dir="ltr" value={itemForm.defaultWastePercentage} onChange={e => setItemForm(f => ({ ...f, defaultWastePercentage: parseFloat(e.target.value) || 0 }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>تكلفة الخامة للوحدة</Label>
+                <Label>{t("boq.materialCost")}</Label>
                 <Input type="number" step="0.01" dir="ltr" value={itemForm.defaultMaterialCost} onChange={e => setItemForm(f => ({ ...f, defaultMaterialCost: parseFloat(e.target.value) || 0 }))} />
               </div>
               <div className="space-y-2">
-                <Label>تكلفة المصنعية للوحدة</Label>
+                <Label>{t("boq.laborCost")}</Label>
                 <Input type="number" step="0.01" dir="ltr" value={itemForm.defaultLaborCost} onChange={e => setItemForm(f => ({ ...f, defaultLaborCost: parseFloat(e.target.value) || 0 }))} />
               </div>
             </div>
             <div className="space-y-2">
-              <Label>هامش الربح %</Label>
+              <Label>{t("boq.profitMargin")}</Label>
               <Input type="number" step="0.5" dir="ltr" value={itemForm.defaultProfitMargin} onChange={e => setItemForm(f => ({ ...f, defaultProfitMargin: parseFloat(e.target.value) || 0 }))} />
             </div>
             {/* preview calculation */}
             <div className="bg-muted/60 rounded-lg p-3 text-sm space-y-1">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">تكلفة الوحدة قبل الربح:</span>
-                <span dir="ltr" className="font-medium">{(itemForm.defaultMaterialCost + itemForm.defaultLaborCost).toFixed(2)}</span>
+                <span className="text-muted-foreground">{t("boq.beforeProfit")}</span>
+                <span dir="ltr" className="font-medium">{formatCurrency(itemForm.defaultMaterialCost + itemForm.defaultLaborCost)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">بعد الهالك والربح (للوحدة):</span>
+                <span className="text-muted-foreground">{t("boq.afterProfit")}</span>
                 <span dir="ltr" className="font-medium text-primary">
-                  {((itemForm.defaultMaterialCost + itemForm.defaultLaborCost) * (1 + itemForm.defaultWastePercentage / 100) * (1 + itemForm.defaultProfitMargin / 100)).toFixed(2)}
+                  {formatCurrency((itemForm.defaultMaterialCost + itemForm.defaultLaborCost) * (1 + itemForm.defaultWastePercentage / 100) * (1 + itemForm.defaultProfitMargin / 100))}
                 </span>
               </div>
             </div>
             <div className="space-y-2">
-              <Label>ملاحظات</Label>
+              <Label>{t("boq.notes")}</Label>
               <Textarea rows={2} value={itemForm.notes} onChange={e => setItemForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
             <Button className="w-full" onClick={saveItem} disabled={itemSaving}>
-              {itemSaving ? "جارٍ الحفظ..." : "حفظ البند"}
+              {itemSaving ? t("common.saving") : t("boq.saveItem")}
             </Button>
           </div>
         </DialogContent>
@@ -404,6 +406,8 @@ export default function BOQLibrary() {
 }
 
 function ItemRows({ items, onEdit, onDelete }: { items: BoqItem[]; onEdit: (i: BoqItem) => void; onDelete: (id: number) => void }) {
+  const { t, direction, formatCurrency, formatNumber } = useTranslation();
+
   return (
     <div className="space-y-2">
       {items.map(it => (
@@ -414,10 +418,10 @@ function ItemRows({ items, onEdit, onDelete }: { items: BoqItem[]; onEdit: (i: B
               {it.defaultUnit && <Badge variant="outline" className="text-xs">{it.defaultUnit}</Badge>}
             </div>
             <div className="text-xs text-muted-foreground mt-0.5 flex gap-3 flex-wrap" dir="ltr">
-              <span>خامة: {parseFloat(it.defaultMaterialCost || "0").toFixed(2)}</span>
-              <span>• مصنعية: {parseFloat(it.defaultLaborCost || "0").toFixed(2)}</span>
-              <span>• هالك: {it.defaultWastePercentage}%</span>
-              <span>• ربح: {it.defaultProfitMargin}%</span>
+              <span>{t("boq.material")}: {formatCurrency(parseFloat(it.defaultMaterialCost || "0"))}</span>
+              <span>• {t("boq.labor")}: {formatCurrency(parseFloat(it.defaultLaborCost || "0"))}</span>
+              <span>• {t("boq.waste")}: {formatNumber(parseFloat(it.defaultWastePercentage || "0"))}%</span>
+              <span>• {t("boq.profit")}: {formatNumber(parseFloat(it.defaultProfitMargin || "0"))}%</span>
             </div>
           </div>
           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => onEdit(it)}>
@@ -429,14 +433,14 @@ function ItemRows({ items, onEdit, onDelete }: { items: BoqItem[]; onEdit: (i: B
                 <Trash2 className="w-3.5 h-3.5" />
               </Button>
             </AlertDialogTrigger>
-            <AlertDialogContent dir="rtl">
+            <AlertDialogContent dir={direction}>
               <AlertDialogHeader>
-                <AlertDialogTitle>حذف البند</AlertDialogTitle>
-                <AlertDialogDescription>هل أنت متأكد من حذف "{it.itemName}"؟</AlertDialogDescription>
+                <AlertDialogTitle>{t("boq.deleteItem")}</AlertDialogTitle>
+                <AlertDialogDescription>{t("boq.deleteItemDescription")}</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="gap-2 sm:gap-0">
-                <AlertDialogCancel>إلغاء</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDelete(it.id)} className="bg-destructive">حذف</AlertDialogAction>
+                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(it.id)} className="bg-destructive">{t("common.delete")}</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
