@@ -33,6 +33,21 @@ function normalizeEmail(value: unknown): string {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
 
+const BRANDING_FIELDS = ["logoUrl", "darkLogoUrl", "faviconUrl", "brandColor"] as const;
+
+function hasBrandingPayload(body: Record<string, unknown>): boolean {
+  return BRANDING_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(body, field));
+}
+
+function brandingValues(body: Record<string, unknown>) {
+  return {
+    logoUrl: (body["logoUrl"] as string | null | undefined) ?? null,
+    darkLogoUrl: (body["darkLogoUrl"] as string | null | undefined) ?? null,
+    faviconUrl: (body["faviconUrl"] as string | null | undefined) ?? null,
+    brandColor: (body["brandColor"] as string | undefined) || "#dc2626",
+  };
+}
+
 router.get("/offices", authMiddleware, async (req, res) => {
   try {
     const offices = await db
@@ -48,6 +63,10 @@ router.get("/offices", authMiddleware, async (req, res) => {
         subscriptionStatus: officesTable.subscriptionStatus,
         subscriptionStart: officesTable.subscriptionStart,
         subscriptionEnd: officesTable.subscriptionEnd,
+        logoUrl: officesTable.logoUrl,
+        darkLogoUrl: officesTable.darkLogoUrl,
+        faviconUrl: officesTable.faviconUrl,
+        brandColor: officesTable.brandColor,
         createdAt: officesTable.createdAt,
         updatedAt: officesTable.updatedAt,
       })
@@ -75,6 +94,11 @@ router.post("/offices", authMiddleware, async (req, res) => {
     const body = result.data as Record<string, unknown>;
     const adminEmail = normalizeEmail(body["email"]);
     const adminName = typeof body["ownerName"] === "string" ? body["ownerName"].trim() : "";
+
+    if (hasBrandingPayload(body) && user.role !== "super_admin") {
+      fail(res, 403, tApi(req, "AUTH.FORBIDDEN"), { code: "AUTH.FORBIDDEN" });
+      return;
+    }
 
     if (!adminName) {
       fail(res, 400, "اسم المالك / المدير مطلوب لإنشاء حساب مدير المكتب");
@@ -117,6 +141,7 @@ router.post("/offices", authMiddleware, async (req, res) => {
           subscriptionStatus,
           subscriptionStart,
           subscriptionEnd,
+          ...(user.role === "super_admin" ? brandingValues(body) : {}),
         })
         .returning();
 
@@ -197,6 +222,10 @@ router.get("/offices/:id", authMiddleware, async (req, res) => {
         subscriptionStatus: officesTable.subscriptionStatus,
         subscriptionStart: officesTable.subscriptionStart,
         subscriptionEnd: officesTable.subscriptionEnd,
+        logoUrl: officesTable.logoUrl,
+        darkLogoUrl: officesTable.darkLogoUrl,
+        faviconUrl: officesTable.faviconUrl,
+        brandColor: officesTable.brandColor,
         createdAt: officesTable.createdAt,
         updatedAt: officesTable.updatedAt,
       })
@@ -276,6 +305,10 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
     const user = getUser(req);
     const id = Number(req.params["id"]);
     const body = req.body as Record<string, unknown>;
+    if (hasBrandingPayload(body) && user.role !== "super_admin") {
+      fail(res, 403, tApi(req, "AUTH.FORBIDDEN"), { code: "AUTH.FORBIDDEN" });
+      return;
+    }
     const existing = await db.select().from(officesTable).where(eq(officesTable.id, id)).limit(1);
     const subscriptionStatus = (body["subscriptionStatus"] as string) || existing[0]?.subscriptionStatus || "trial";
     const subscriptionStart = (body["subscriptionStart"] as string | null) || existing[0]?.subscriptionStart || toDateString(new Date());
@@ -292,6 +325,7 @@ router.put("/offices/:id", authMiddleware, validateBody(officeSchema), async (re
         subscriptionStatus,
         subscriptionStart,
         subscriptionEnd,
+        ...(user.role === "super_admin" && hasBrandingPayload(body) ? brandingValues(body) : {}),
         updatedAt: new Date(),
       })
       .where(eq(officesTable.id, id))

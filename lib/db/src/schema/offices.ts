@@ -18,6 +18,10 @@ export const officesTable = pgTable("offices", {
   defaultLanguage: varchar("default_language", { length: 10 }).notNull().default("ar"),
   timezone: varchar("timezone", { length: 100 }).notNull().default("Africa/Cairo"),
   currency: varchar("currency", { length: 3 }).notNull().default("EGP"),
+  logoUrl: text("logo_url"),
+  darkLogoUrl: text("dark_logo_url"),
+  faviconUrl: text("favicon_url"),
+  brandColor: varchar("brand_color", { length: 20 }).notNull().default("#dc2626"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

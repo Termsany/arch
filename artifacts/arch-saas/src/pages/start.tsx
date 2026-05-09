@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useGetActivePlans } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { Building2, CheckCircle2, CreditCard, KeyRound, UserRound } from "lucide-react";
@@ -12,6 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { parseApiResponse } from "@/lib/api-response";
 import { useTranslation } from "@/i18n/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { getStoredOfficeBranding, updateFavicon } from "@/lib/branding";
 
 type CreatedOffice = {
   office: { id: number; officeName: string; subscriptionEnd?: string | null };
@@ -22,6 +23,8 @@ type CreatedOffice = {
 export default function Start() {
   const { direction, language, t } = useTranslation();
   const { data: plans, isLoading } = useGetActivePlans();
+  const branding = getStoredOfficeBranding();
+  const displayName = branding.officeName || "ArchSaaS";
   const [created, setCreated] = useState<CreatedOffice | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -32,6 +35,10 @@ export default function Start() {
     password: "",
     plan_id: "",
   });
+
+  useEffect(() => {
+    updateFavicon(branding.faviconUrl);
+  }, [branding.faviconUrl]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -57,8 +64,12 @@ export default function Start() {
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/pricing" className="flex items-center gap-2 text-xl font-bold text-primary">
-            <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground">A</div>
-            ArchSaaS
+            {branding.logoUrl ? (
+              <img src={branding.logoUrl} alt={displayName} className="w-9 h-9 rounded object-contain border border-border bg-background p-1" />
+            ) : (
+              <div className="w-8 h-8 rounded flex items-center justify-center text-white" style={{ backgroundColor: branding.brandColor }}>A</div>
+            )}
+            {displayName}
           </Link>
           <div className="flex items-center gap-3">
             <LanguageSwitcher compact />

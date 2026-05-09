@@ -9,6 +9,7 @@ import { useTranslation } from "@/i18n/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { APP_MODULES, type AppModuleKey } from "@/lib/modules";
 import { fetchMyModules } from "@/lib/module-access";
+import { getOfficeBranding, updateFavicon } from "@/lib/branding";
 
 const MODULE_ICONS = {
   dashboard: LayoutDashboard,
@@ -32,7 +33,8 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
   const [location] = useLocation();
   const { logout, user } = useAuth();
   const { t } = useTranslation();
-  const role = (user as { role?: string } | null)?.role;
+  const role = (user as { role?: string; office?: unknown } | null)?.role;
+  const branding = getOfficeBranding((user as { office?: Parameters<typeof getOfficeBranding>[0] } | null)?.office);
   const isSuperAdmin = role === "super_admin";
   const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
 
@@ -85,11 +87,12 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
                 onClick={onClick}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-secondary text-secondary-foreground"
+                    ? "text-foreground"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
+                style={isActive ? { backgroundColor: `${branding.brandColor}18`, color: branding.brandColor } : undefined}
               >
-                <Icon className={`w-5 h-5 ${isActive ? "text-secondary-foreground" : ""}`} />
+                <Icon className="w-5 h-5" />
                 {t(item.labelKey)}
               </div>
             </Link>
@@ -106,6 +109,33 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
   );
 }
 
+function BrandHeader() {
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const branding = getOfficeBranding((user as { office?: Parameters<typeof getOfficeBranding>[0] } | null)?.office);
+  const displayName = branding.officeName || t("app.name");
+
+  useEffect(() => {
+    updateFavicon(branding.faviconUrl);
+  }, [branding.faviconUrl]);
+
+  return (
+    <div className="h-16 flex items-center px-6 border-b border-border font-bold text-xl text-primary gap-2">
+      {branding.logoUrl ? (
+        <img src={branding.logoUrl} alt={displayName} className="w-9 h-9 rounded object-contain bg-background border border-border" />
+      ) : (
+        <div
+          className="w-9 h-9 rounded flex items-center justify-center text-white text-sm font-bold"
+          style={{ backgroundColor: branding.brandColor }}
+        >
+          {displayName[0]?.toUpperCase() || "A"}
+        </div>
+      )}
+      <span className="truncate">{displayName}</span>
+    </div>
+  );
+}
+
 export function Sidebar() {
   const { user } = useAuth();
   const { t } = useTranslation();
@@ -115,10 +145,7 @@ export function Sidebar() {
 
   return (
     <aside className="hidden md:flex flex-col w-64 bg-card border-l h-screen sticky top-0">
-      <div className="h-16 flex items-center px-6 border-b border-border font-bold text-2xl text-primary gap-2">
-        <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground text-sm font-bold">A</div>
-        {t("app.name")}
-      </div>
+      <BrandHeader />
       <div className="px-4 pt-3 flex items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-md">{roleBadge}</span>
       </div>
@@ -139,10 +166,7 @@ export function MobileSidebar() {
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="p-0 w-64 flex flex-col h-full">
-        <div className="h-16 flex items-center px-6 border-b border-border font-bold text-2xl text-primary gap-2">
-          <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center text-secondary-foreground text-sm font-bold">A</div>
-          {t("app.name")}
-        </div>
+        <BrandHeader />
         <NavLinks onClick={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
@@ -153,6 +177,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [location] = useLocation();
   const { direction } = useTranslation();
+  const branding = getOfficeBranding((user as { office?: Parameters<typeof getOfficeBranding>[0] } | null)?.office);
 
   if (location === "/" || location === "/login" || location === "/client/login" || location === "/pricing" || location === "/start" || location === "/set-password") {
     return <>{children}</>;
@@ -162,7 +187,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen w-full bg-background" dir={direction}>
       <Sidebar />
       <div className="flex-1 flex flex-col w-full h-full min-w-0">
-        <header className="h-16 flex items-center justify-between px-4 sm:px-6 bg-card border-b border-border z-10 sticky top-0">
+        <header className="h-16 flex items-center justify-between px-4 sm:px-6 bg-card border-b border-border z-10 sticky top-0" style={{ borderTop: `3px solid ${branding.brandColor}` }}>
           <div className="flex items-center gap-3">
             <MobileSidebar />
             <LanguageSwitcher />

@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Search, Building2, Copy, Settings2, KeyRound } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Building2, Copy, Settings2, KeyRound, Palette } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdminPasswordResetForm } from "@/components/admin-password-reset-form";
@@ -25,6 +25,8 @@ import { useTranslation } from "@/i18n/language-context";
 import type { TranslationKey } from "@/i18n/translations";
 import { OFFICE_CONTROLLED_MODULES, APP_MODULES, type AppModuleKey } from "@/lib/modules";
 import { fetchOfficeModules, updateOfficeModules } from "@/lib/module-access";
+import { parseApiResponse } from "@/lib/api-response";
+import { useAuth } from "@/hooks/use-auth";
 
 const SUBSCRIPTION_STATUSES = [
   { value: "trial", labelKey: "status.trial", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
@@ -39,6 +41,23 @@ type CreateOfficeInviteResponse = {
   officeAdmin?: unknown;
   inviteUrl?: string;
   inviteExpiresAt?: string;
+};
+
+type OfficeWithBranding = {
+  id: number;
+  officeName: string;
+  ownerName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  planId?: number | null;
+  subscriptionStatus?: string | null;
+  subscriptionStart?: string | null;
+  subscriptionEnd?: string | null;
+  logoUrl?: string | null;
+  darkLogoUrl?: string | null;
+  faviconUrl?: string | null;
+  brandColor?: string | null;
 };
 
 function dateOnly(date: Date): string {
@@ -67,21 +86,32 @@ function getErrorMessage(error: unknown): string {
 export default function Offices() {
   const queryClient = useQueryClient();
   const { direction, t, formatDate } = useTranslation();
+  const { user } = useAuth();
   const { data: offices, isLoading } = useGetOffices();
   const { data: plans } = useGetActivePlans();
+  const isSuperAdmin = (user as { role?: string } | null)?.role === "super_admin";
   
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
   const [modulesDialogOpen, setModulesDialogOpen] = useState(false);
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [brandingDialogOpen, setBrandingDialogOpen] = useState(false);
   const [modulesOffice, setModulesOffice] = useState<{ id: number; officeName: string } | null>(null);
   const [passwordOffice, setPasswordOffice] = useState<{ officeName: string; email: string } | null>(null);
+  const [brandingOffice, setBrandingOffice] = useState<OfficeWithBranding | null>(null);
   const [moduleSelection, setModuleSelection] = useState<AppModuleKey[]>([]);
   const [modulesLoading, setModulesLoading] = useState(false);
   const [modulesSaving, setModulesSaving] = useState(false);
+  const [brandingSaving, setBrandingSaving] = useState(false);
   const [latestInvite, setLatestInvite] = useState<CreateOfficeInviteResponse | null>(null);
   const [editingOffice, setEditingOffice] = useState<any>(null);
+  const [brandingForm, setBrandingForm] = useState({
+    logoUrl: "",
+    darkLogoUrl: "",
+    faviconUrl: "",
+    brandColor: "#dc2626",
+  });
   
   const [formData, setFormData] = useState({
     officeName: "",
@@ -175,6 +205,17 @@ export default function Offices() {
     setPasswordDialogOpen(true);
   };
 
+  const openBrandingDialog = (office: OfficeWithBranding) => {
+    setBrandingOffice(office);
+    setBrandingForm({
+      logoUrl: office.logoUrl || "",
+      darkLogoUrl: office.darkLogoUrl || "",
+      faviconUrl: office.faviconUrl || "",
+      brandColor: office.brandColor || "#dc2626",
+    });
+    setBrandingDialogOpen(true);
+  };
+
   const toggleModule = (moduleKey: AppModuleKey, checked: boolean) => {
     setModuleSelection((current) => {
       if (checked) return current.includes(moduleKey) ? current : [...current, moduleKey];
@@ -195,6 +236,44 @@ export default function Offices() {
       toast({ title: t("modules.updateError"), variant: "destructive" });
     } finally {
       setModulesSaving(false);
+    }
+  };
+
+  const saveBranding = async () => {
+    if (!brandingOffice) return;
+    setBrandingSaving(true);
+    try {
+      const response = await fetch(`/api/offices/${brandingOffice.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
+        },
+        body: JSON.stringify({
+          officeName: brandingOffice.officeName,
+          ownerName: brandingOffice.ownerName || null,
+          phone: brandingOffice.phone || null,
+          email: brandingOffice.email || null,
+          address: brandingOffice.address || null,
+          planId: brandingOffice.planId ?? null,
+          subscriptionStatus: brandingOffice.subscriptionStatus || "trial",
+          subscriptionStart: brandingOffice.subscriptionStart ? brandingOffice.subscriptionStart.substring(0, 10) : dateOnly(new Date()),
+          ...(brandingOffice.subscriptionEnd ? { subscriptionEnd: brandingOffice.subscriptionEnd.substring(0, 10) } : {}),
+          logoUrl: brandingForm.logoUrl.trim() || null,
+          darkLogoUrl: brandingForm.darkLogoUrl.trim() || null,
+          faviconUrl: brandingForm.faviconUrl.trim() || null,
+          brandColor: brandingForm.brandColor || "#dc2626",
+        }),
+      });
+
+      await parseApiResponse(response);
+      queryClient.invalidateQueries({ queryKey: getGetOfficesQueryKey() });
+      toast({ title: t("branding.saved") });
+      setBrandingDialogOpen(false);
+    } catch (error) {
+      toast({ title: getErrorMessage(error) || t("error.tryAgain"), variant: "destructive" });
+    } finally {
+      setBrandingSaving(false);
     }
   };
 
@@ -426,6 +505,59 @@ export default function Offices() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={brandingDialogOpen} onOpenChange={setBrandingDialogOpen}>
+          <DialogContent className="sm:max-w-[620px]" dir={direction}>
+            <DialogHeader>
+              <DialogTitle>{t("branding.title")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="rounded-lg border p-4 flex items-center gap-4">
+                {brandingForm.logoUrl ? (
+                  <img src={brandingForm.logoUrl} alt={brandingOffice?.officeName || t("branding.defaultLogo")} className="w-16 h-16 rounded-lg object-contain border bg-background p-1" />
+                ) : (
+                  <div className="w-16 h-16 rounded-lg flex items-center justify-center text-white font-bold text-xl" style={{ backgroundColor: brandingForm.brandColor }}>
+                    {(brandingOffice?.officeName || "A")[0]?.toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs text-muted-foreground">{t("branding.preview")}</div>
+                  <div className="font-semibold text-lg">{brandingOffice?.officeName}</div>
+                  <div className="mt-1 h-2 w-32 rounded-full" style={{ backgroundColor: brandingForm.brandColor }} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="logoUrl">{t("branding.logo")}</Label>
+                  <Input id="logoUrl" dir="ltr" value={brandingForm.logoUrl} onChange={(e) => setBrandingForm({ ...brandingForm, logoUrl: e.target.value })} placeholder="https://..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="darkLogoUrl">{t("branding.darkLogo")}</Label>
+                  <Input id="darkLogoUrl" dir="ltr" value={brandingForm.darkLogoUrl} onChange={(e) => setBrandingForm({ ...brandingForm, darkLogoUrl: e.target.value })} placeholder="https://..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="faviconUrl">{t("branding.favicon")}</Label>
+                  <Input id="faviconUrl" dir="ltr" value={brandingForm.faviconUrl} onChange={(e) => setBrandingForm({ ...brandingForm, faviconUrl: e.target.value })} placeholder="https://..." />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="brandColor">{t("branding.brandColor")}</Label>
+                  <div className="flex gap-2">
+                    <Input id="brandColor" type="color" className="w-16 p-1" value={brandingForm.brandColor} onChange={(e) => setBrandingForm({ ...brandingForm, brandColor: e.target.value })} />
+                    <Input dir="ltr" value={brandingForm.brandColor} onChange={(e) => setBrandingForm({ ...brandingForm, brandColor: e.target.value })} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setBrandingDialogOpen(false)}>{t("branding.cancel")}</Button>
+                <Button onClick={saveBranding} disabled={brandingSaving}>
+                  {brandingSaving ? t("common.saving") : t("branding.save")}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="bg-card border border-border rounded-lg shadow-sm">
           <div className="p-4 border-b border-border flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -508,6 +640,11 @@ export default function Offices() {
                           <Button variant="ghost" size="icon" onClick={() => openPasswordDialog({ officeName: office.officeName, email: office.email })} title={t("adminCredentials.resetOfficeAdmin")}>
                             <KeyRound className="w-4 h-4 text-muted-foreground" />
                           </Button>
+                          {isSuperAdmin && (
+                            <Button variant="ghost" size="icon" onClick={() => openBrandingDialog(office as OfficeWithBranding)} title={t("branding.open")}>
+                              <Palette className="w-4 h-4 text-muted-foreground" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(office)} title={t("common.edit")}>
                             <Edit2 className="w-4 h-4 text-primary" />
                           </Button>

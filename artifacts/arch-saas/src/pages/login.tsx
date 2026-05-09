@@ -9,15 +9,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Building2, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { getStoredOfficeBranding, updateFavicon } from "@/lib/branding";
 
 export default function Login() {
   const { login, isLoading } = useAuth();
   const { direction, language, t } = useTranslation();
   const [email, setEmail] = useState("admin@example.com");
   const [password, setPassword] = useState("admin123");
+  const branding = getStoredOfficeBranding();
+  const displayName = branding.officeName || t("auth.login.title");
 
   useEffect(() => {
     setLocalizedMeta("login", language);
+    updateFavicon(branding.faviconUrl);
   }, [language]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,10 +42,14 @@ export default function Login() {
       
       <Card className="w-full max-w-md relative z-10 shadow-2xl border-border/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="space-y-3 text-center pb-8">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20 mb-2">
-            <Building2 className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-3xl font-bold tracking-tight">{t("auth.login.title")}</CardTitle>
+          {branding.logoUrl ? (
+            <img src={branding.logoUrl} alt={displayName} className="mx-auto w-20 h-20 rounded-2xl object-contain border border-border bg-background p-2 shadow-lg mb-2" />
+          ) : (
+            <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg mb-2" style={{ backgroundColor: branding.brandColor }}>
+              <Building2 className="w-8 h-8 text-white" />
+            </div>
+          )}
+          <CardTitle className="text-3xl font-bold tracking-tight">{displayName}</CardTitle>
           <CardDescription className="text-base">{t("auth.login.description")}</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -72,7 +80,7 @@ export default function Login() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 pb-8">
-            <Button type="submit" className="w-full h-12 text-lg font-medium" disabled={isLoading}>
+            <Button type="submit" className="w-full h-12 text-lg font-medium" disabled={isLoading} style={{ backgroundColor: branding.brandColor }}>
               {isLoading ? t("auth.login.loading") : t("auth.login.action")}
             </Button>
             <p className="text-sm text-muted-foreground text-center">

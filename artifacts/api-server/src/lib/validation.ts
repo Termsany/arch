@@ -3,6 +3,31 @@ import { validationMessage } from "./validation-messages";
 
 const trimString = (min = 1, max = 255) => z.string().trim().min(min).max(max);
 const optionalText = (max = 2000) => z.string().trim().max(max).optional().nullable();
+const optionalHttpUrl = z
+  .preprocess((value) => {
+    if (value === "" || value === null || value === undefined) return null;
+    if (typeof value !== "string") return value;
+    return value.trim();
+  }, z.union([
+    z.null(),
+    z.string().url("رابط غير صالح").refine((value) => {
+      try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+      } catch {
+        return false;
+      }
+    }, "يجب أن يبدأ الرابط بـ http أو https"),
+  ]))
+  .optional()
+  .nullable();
+const optionalBrandColor = z
+  .preprocess((value) => {
+    if (value === "" || value === null || value === undefined) return undefined;
+    if (typeof value !== "string") return value;
+    return value.trim();
+  }, z.string().regex(/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/, "لون العلامة التجارية غير صالح").optional())
+  .optional();
 const optionalEmail = z
   .union([z.literal(""), z.email().max(150)])
   .optional()
@@ -88,6 +113,10 @@ export const officeSchema = z.object({
   subscriptionStatus: z.enum(["trial", "active", "past_due", "cancelled", "inactive"]).optional().default("trial"),
   subscriptionStart: optionalDate,
   subscriptionEnd: optionalDate,
+  logoUrl: optionalHttpUrl,
+  darkLogoUrl: optionalHttpUrl,
+  faviconUrl: optionalHttpUrl,
+  brandColor: optionalBrandColor,
 });
 
 export const planSchema = z.object({

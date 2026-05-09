@@ -39,10 +39,24 @@ type LegacyUserRow = {
   updated_at: Date;
 };
 
+type LegacyOfficeRow = {
+  id: number;
+  region: string;
+  default_language: string;
+  timezone: string;
+  currency: string;
+};
+
 function isMissingUserCompatibilityColumn(error: unknown): boolean {
   const candidate = error as { code?: unknown; message?: unknown } | null;
   const message = String(candidate?.message ?? "");
   return candidate?.code === "42703" || message.includes("preferred_language") || message.includes("must_change_password") || message.includes("password_changed_at");
+}
+
+function isMissingOfficeBrandingColumn(error: unknown): boolean {
+  const candidate = error as { code?: unknown; message?: unknown } | null;
+  const message = String(candidate?.message ?? "");
+  return candidate?.code === "42703" || message.includes("logo_url") || message.includes("dark_logo_url") || message.includes("favicon_url") || message.includes("brand_color");
 }
 
 function mapLegacyUser(row: LegacyUserRow): SafeUser {
@@ -116,6 +130,10 @@ function safeUserResponse(user: SafeUser, office?: Office | null) {
           defaultLanguage: office.defaultLanguage,
           timezone: office.timezone,
           currency: office.currency,
+          logoUrl: office.logoUrl,
+          darkLogoUrl: office.darkLogoUrl,
+          faviconUrl: office.faviconUrl,
+          brandColor: office.brandColor,
         }
       : null,
   };
@@ -123,8 +141,32 @@ function safeUserResponse(user: SafeUser, office?: Office | null) {
 
 async function getOfficeLocalization(officeId: number | null | undefined): Promise<Office | null> {
   if (!officeId) return null;
-  const offices = await db.select().from(officesTable).where(eq(officesTable.id, officeId)).limit(1);
-  return offices[0] ?? null;
+  try {
+    const offices = await db.select().from(officesTable).where(eq(officesTable.id, officeId)).limit(1);
+    return offices[0] ?? null;
+  } catch (error) {
+    if (!isMissingOfficeBrandingColumn(error)) throw error;
+    const result = await pool.query<LegacyOfficeRow>(
+      `SELECT id, region, default_language, timezone, currency
+       FROM offices
+       WHERE id = $1
+       LIMIT 1`,
+      [officeId],
+    );
+    const office = result.rows[0];
+    if (!office) return null;
+    return {
+      id: office.id,
+      region: office.region,
+      defaultLanguage: office.default_language,
+      timezone: office.timezone,
+      currency: office.currency,
+      logoUrl: null,
+      darkLogoUrl: null,
+      faviconUrl: null,
+      brandColor: "#dc2626",
+    } as Office;
+  }
 }
 
 router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, res) => {
@@ -178,6 +220,10 @@ router.post("/auth/login", validateBody(loginSchema), asyncHandler(async (req, r
               defaultLanguage: office.defaultLanguage,
               timezone: office.timezone,
               currency: office.currency,
+              logoUrl: office.logoUrl,
+              darkLogoUrl: office.darkLogoUrl,
+              faviconUrl: office.faviconUrl,
+              brandColor: office.brandColor,
             }
           : null,
         createdAt: user.createdAt,
