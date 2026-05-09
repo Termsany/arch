@@ -7,6 +7,8 @@ import { CheckCircle2, XCircle, Users, FolderOpen, Database, Building2, CreditCa
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { parseApiResponse } from "@/lib/api-response";
+import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
 
 interface SubscriptionInfo {
   isSuperAdmin: boolean;
@@ -31,14 +33,14 @@ interface SubscriptionInfo {
   currentClients?: number;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  trial: { label: "تجريبي", color: "bg-blue-100 text-blue-800 border-blue-200" },
-  active: { label: "نشط", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
-  expired: { label: "منتهي", color: "bg-orange-100 text-orange-800 border-orange-200" },
-  cancelled: { label: "ملغي", color: "bg-rose-100 text-rose-800 border-rose-200" },
+const STATUS_MAP: Record<string, { labelKey: TranslationKey; color: string }> = {
+  trial: { labelKey: "subscription.status.trial", color: "bg-blue-100 text-blue-800 border-blue-200" },
+  active: { labelKey: "subscription.status.active", color: "bg-emerald-100 text-emerald-800 border-emerald-200" },
+  expired: { labelKey: "subscription.status.expired", color: "bg-orange-100 text-orange-800 border-orange-200" },
+  cancelled: { labelKey: "subscription.status.cancelled", color: "bg-rose-100 text-rose-800 border-rose-200" },
 };
 
-function LimitBar({ label, current, max, icon: Icon }: { label: string; current: number; max: number; icon: React.ElementType }) {
+function LimitBar({ label, current, max, icon: Icon, formatNumber }: { label: string; current: number; max: number; icon: React.ElementType; formatNumber: (value: number) => string }) {
   const unlimited = max === 0;
   const pct = unlimited ? 0 : Math.min(100, Math.round((current / max) * 100));
   const nearLimit = !unlimited && pct >= 80;
@@ -51,7 +53,7 @@ function LimitBar({ label, current, max, icon: Icon }: { label: string; current:
           <Icon className="w-4 h-4" />{label}
         </span>
         <span className={`font-medium ${atLimit ? "text-destructive" : nearLimit ? "text-orange-600" : "text-foreground"}`}>
-          {current} / {unlimited ? "∞" : max}
+          {formatNumber(current)} / {unlimited ? "∞" : formatNumber(max)}
         </span>
       </div>
       {!unlimited && (
@@ -76,6 +78,7 @@ function FeaturePill({ label, enabled }: { label: string; enabled: boolean }) {
 }
 
 export default function Subscription() {
+  const { t, direction, formatDate, formatCurrency, formatNumber } = useTranslation();
   const [info, setInfo] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +109,7 @@ export default function Subscription() {
       <AppLayout>
         <div className="max-w-3xl mx-auto p-8 text-center text-muted-foreground">
           <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-destructive opacity-60" />
-          <p>{error || "لم يتم العثور على بيانات الاشتراك"}</p>
+          <p>{error || t("subscription.notFound")}</p>
         </div>
       </AppLayout>
     );
@@ -117,31 +120,31 @@ export default function Subscription() {
       <AppLayout>
         <div className="max-w-3xl mx-auto p-8 text-center">
           <Building2 className="w-12 h-12 mx-auto mb-4 text-primary opacity-70" />
-          <h2 className="text-xl font-bold mb-2">مدير النظام</h2>
-          <p className="text-muted-foreground mb-6">لديك صلاحيات كاملة بدون قيود اشتراك.</p>
+          <h2 className="text-xl font-bold mb-2">{t("subscription.superAdminTitle")}</h2>
+          <p className="text-muted-foreground mb-6">{t("subscription.superAdminDescription")}</p>
           <Link href="/plans">
-            <Button variant="outline">إدارة خطط الاشتراك</Button>
+            <Button variant="outline">{t("subscription.managePlans")}</Button>
           </Link>
         </div>
       </AppLayout>
     );
   }
 
-  const statusInfo = STATUS_MAP[info.subscriptionStatus ?? ""] ?? { label: info.subscriptionStatus ?? "غير معروف", color: "bg-muted text-muted-foreground" };
+  const statusInfo = STATUS_MAP[info.subscriptionStatus ?? ""] ?? { labelKey: "subscription.status.unknown" as TranslationKey, color: "bg-muted text-muted-foreground" };
   const isBlocked = info.subscriptionStatus === "expired" || info.subscriptionStatus === "cancelled";
 
   return (
     <AppLayout>
-      <div className="max-w-3xl mx-auto space-y-6" dir="rtl">
+      <div className="max-w-3xl mx-auto space-y-6" dir={direction}>
         <div>
-          <h1 className="text-3xl font-bold text-foreground">اشتراكي</h1>
-          <p className="text-muted-foreground mt-1">تفاصيل خطة الاشتراك والاستخدام الحالي</p>
+          <h1 className="text-3xl font-bold text-foreground">{t("subscription.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("subscription.subtitle")}</p>
         </div>
 
         {isBlocked && (
           <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
             <AlertTriangle className="w-5 h-5 shrink-0" />
-            <span>اشتراكك {statusInfo.label}. يرجى التواصل مع مزود الخدمة لتجديد الاشتراك وإعادة تفعيل الحساب.</span>
+            <span>{t("subscription.blockedMessage")}</span>
           </div>
         )}
 
@@ -152,32 +155,32 @@ export default function Subscription() {
               <div>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-primary" />
-                  {info.planName ?? "بدون خطة"}
+                  {info.planName ?? t("subscription.noPlan")}
                 </CardTitle>
                 <CardDescription className="mt-1">{info.officeName}</CardDescription>
               </div>
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusInfo.color}`}>
-                {statusInfo.label}
+                {t(statusInfo.labelKey)}
               </span>
             </div>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             {info.subscriptionStart && (
               <div className="flex justify-between">
-                <span>تاريخ البدء</span>
-                <span dir="ltr" className="text-foreground">{new Date(info.subscriptionStart).toLocaleDateString("ar-SA")}</span>
+                <span>{t("subscription.startDate")}</span>
+                <span dir="ltr" className="text-foreground">{formatDate(info.subscriptionStart)}</span>
               </div>
             )}
             {info.subscriptionEnd && (
               <div className="flex justify-between">
-                <span>تاريخ الانتهاء</span>
-                <span dir="ltr" className="text-foreground">{new Date(info.subscriptionEnd).toLocaleDateString("ar-SA")}</span>
+                <span>{t("subscription.endDate")}</span>
+                <span dir="ltr" className="text-foreground">{formatDate(info.subscriptionEnd)}</span>
               </div>
             )}
             {info.monthlyPrice && (
               <div className="flex justify-between">
-                <span>السعر الشهري</span>
-                <span dir="ltr" className="text-foreground font-medium">{Number(info.monthlyPrice).toLocaleString()} ر.س</span>
+                <span>{t("subscription.monthlyPrice")}</span>
+                <span dir="ltr" className="text-foreground font-medium">{formatCurrency(Number(info.monthlyPrice))}</span>
               </div>
             )}
           </CardContent>
@@ -187,12 +190,12 @@ export default function Subscription() {
         {info.planId && (
           <Card className="border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">الاستخدام الحالي</CardTitle>
+              <CardTitle className="text-base">{t("subscription.currentUsage")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <LimitBar label="المشاريع" current={info.currentProjects ?? 0} max={info.maxProjects ?? 0} icon={FolderOpen} />
-              <LimitBar label="العملاء" current={info.currentClients ?? 0} max={info.maxClients ?? 0} icon={Users} />
-              <LimitBar label="التخزين (MB)" current={0} max={info.storageLimitMb ?? 0} icon={Database} />
+              <LimitBar label={t("subscription.projects")} current={info.currentProjects ?? 0} max={info.maxProjects ?? 0} icon={FolderOpen} formatNumber={formatNumber} />
+              <LimitBar label={t("subscription.clients")} current={info.currentClients ?? 0} max={info.maxClients ?? 0} icon={Users} formatNumber={formatNumber} />
+              <LimitBar label={t("subscription.storageMb")} current={0} max={info.storageLimitMb ?? 0} icon={Database} formatNumber={formatNumber} />
             </CardContent>
           </Card>
         )}
@@ -201,15 +204,15 @@ export default function Subscription() {
         {info.planId && (
           <Card className="border-border/50">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">الميزات المتاحة</CardTitle>
+              <CardTitle className="text-base">{t("subscription.availableFeatures")}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <FeaturePill label="بوابة العميل" enabled={info.hasClientPortal ?? false} />
-                <FeaturePill label="تقارير PDF" enabled={info.hasPdfReports ?? false} />
-                <FeaturePill label="أدوار الفريق" enabled={info.hasTeamRoles ?? false} />
-                <FeaturePill label="المقايسات المتقدمة" enabled={info.hasAdvancedEstimates ?? false} />
-                <FeaturePill label="إشعارات واتساب" enabled={info.hasWhatsappNotifications ?? false} />
+                <FeaturePill label={t("subscription.clientPortal")} enabled={info.hasClientPortal ?? false} />
+                <FeaturePill label={t("subscription.pdfReports")} enabled={info.hasPdfReports ?? false} />
+                <FeaturePill label={t("subscription.teamRoles")} enabled={info.hasTeamRoles ?? false} />
+                <FeaturePill label={t("subscription.advancedEstimates")} enabled={info.hasAdvancedEstimates ?? false} />
+                <FeaturePill label={t("subscription.whatsappNotifications")} enabled={info.hasWhatsappNotifications ?? false} />
               </div>
             </CardContent>
           </Card>
@@ -219,7 +222,7 @@ export default function Subscription() {
           <Link href="/pricing">
             <Button variant="outline" className="gap-2">
               <CreditCard className="w-4 h-4" />
-              مقارنة الخطط والترقية
+              {t("subscription.compareUpgrade")}
             </Button>
           </Link>
         </div>
