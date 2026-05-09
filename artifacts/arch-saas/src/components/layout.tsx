@@ -3,27 +3,29 @@ import { useAuth } from "@/hooks/use-auth";
 import { LayoutDashboard, Users, FolderOpen, CreditCard, Building2, Tag, LogOut, Menu, BookOpen, BadgeCheck, Bell, ClipboardList, Receipt, BarChart3, MessageCircle, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NotificationBell } from "@/components/notification-bell";
 import { useTranslation } from "@/i18n/language-context";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { APP_MODULES, type AppModuleKey } from "@/lib/modules";
+import { fetchMyModules } from "@/lib/module-access";
 
-const ALL_NAV_ITEMS = [
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard, superAdminOnly: false, officeOnly: false },
-  { href: "/clients", labelKey: "nav.clients", icon: Users, superAdminOnly: false, officeOnly: false },
-  { href: "/projects", labelKey: "nav.projects", icon: FolderOpen, superAdminOnly: false, officeOnly: false },
-  { href: "/tasks", labelKey: "nav.tasks", icon: ClipboardList, superAdminOnly: false, officeOnly: false },
-  { href: "/invoices", labelKey: "nav.invoices", icon: Receipt, superAdminOnly: false, officeOnly: false },
-  { href: "/reports", labelKey: "nav.reports", icon: BarChart3, superAdminOnly: false, officeOnly: false },
-  { href: "/audit-logs", labelKey: "nav.auditLogs", icon: ScrollText, superAdminOnly: false, officeOnly: false, adminOnly: true },
-  { href: "/whatsapp", labelKey: "nav.whatsapp", icon: MessageCircle, superAdminOnly: false, officeOnly: false },
-  { href: "/boq-library", labelKey: "nav.boqLibrary", icon: BookOpen, superAdminOnly: false, officeOnly: false },
-  { href: "/notifications", labelKey: "nav.notifications", icon: Bell, superAdminOnly: false, officeOnly: false },
-  { href: "/subscription", labelKey: "nav.subscription", icon: BadgeCheck, superAdminOnly: false, officeOnly: true },
-  { href: "/plans", labelKey: "nav.plans", icon: CreditCard, superAdminOnly: true, officeOnly: false },
-  { href: "/offices", labelKey: "nav.offices", icon: Building2, superAdminOnly: true, officeOnly: false },
-  { href: "/pricing", labelKey: "nav.pricing", icon: Tag, superAdminOnly: false, officeOnly: false },
-] as const;
+const MODULE_ICONS = {
+  dashboard: LayoutDashboard,
+  clients: Users,
+  projects: FolderOpen,
+  tasks: ClipboardList,
+  invoices: Receipt,
+  reports: BarChart3,
+  audit_logs: ScrollText,
+  whatsapp: MessageCircle,
+  boq_library: BookOpen,
+  notifications: Bell,
+  subscription: BadgeCheck,
+  plans: CreditCard,
+  offices: Building2,
+  pricing: Tag,
+} satisfies Record<AppModuleKey, typeof LayoutDashboard>;
 
 function NavLinks({ onClick }: { onClick?: () => void }) {
   const [location] = useLocation();
@@ -31,11 +33,41 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
   const { t } = useTranslation();
   const role = (user as { role?: string } | null)?.role;
   const isSuperAdmin = role === "super_admin";
+  const [enabledModules, setEnabledModules] = useState<string[] | null>(null);
 
-  const navItems = ALL_NAV_ITEMS.filter(item => {
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadModules = () => {
+      if (!user) {
+        setEnabledModules(null);
+        return;
+      }
+
+      fetchMyModules()
+        .then((data) => {
+          if (!cancelled) setEnabledModules(data.enabledModules);
+        })
+        .catch(() => {
+          if (!cancelled) setEnabledModules(["dashboard"]);
+        });
+    };
+
+    loadModules();
+    window.addEventListener("modules:updated", loadModules);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("modules:updated", loadModules);
+    };
+  }, [user]);
+
+  const enabledSet = new Set(enabledModules ?? ["dashboard"]);
+
+  const navItems = APP_MODULES.filter(item => {
     if (item.superAdminOnly && !isSuperAdmin) return false;
     if (item.officeOnly && isSuperAdmin) return false;
     if ("adminOnly" in item && item.adminOnly && !isSuperAdmin && role !== "office_admin") return false;
+    if (!isSuperAdmin && !enabledSet.has(item.key)) return false;
     return true;
   });
 
@@ -43,7 +75,7 @@ function NavLinks({ onClick }: { onClick?: () => void }) {
     <nav className="space-y-1 mt-8 flex flex-col w-full px-4 h-full">
       <div className="flex-1 space-y-1">
         {navItems.map((item) => {
-          const Icon = item.icon;
+          const Icon = MODULE_ICONS[item.key];
           const isActive = location === item.href || location.startsWith(`${item.href}/`);
 
           return (

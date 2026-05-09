@@ -15,12 +15,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Search, Building2, Copy } from "lucide-react";
+import { Plus, Edit2, Trash2, Search, Building2, Copy, Settings2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTranslation } from "@/i18n/language-context";
 import type { TranslationKey } from "@/i18n/translations";
+import { OFFICE_CONTROLLED_MODULES, APP_MODULES, type AppModuleKey } from "@/lib/modules";
+import { fetchOfficeModules, updateOfficeModules } from "@/lib/module-access";
 
 const SUBSCRIPTION_STATUSES = [
   { value: "trial", labelKey: "status.trial", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300" },
@@ -69,6 +72,11 @@ export default function Offices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [modulesDialogOpen, setModulesDialogOpen] = useState(false);
+  const [modulesOffice, setModulesOffice] = useState<{ id: number; officeName: string } | null>(null);
+  const [moduleSelection, setModuleSelection] = useState<AppModuleKey[]>([]);
+  const [modulesLoading, setModulesLoading] = useState(false);
+  const [modulesSaving, setModulesSaving] = useState(false);
   const [latestInvite, setLatestInvite] = useState<CreateOfficeInviteResponse | null>(null);
   const [editingOffice, setEditingOffice] = useState<any>(null);
   
@@ -142,6 +150,44 @@ export default function Offices() {
     if (!latestInvite?.inviteUrl) return;
     await navigator.clipboard.writeText(latestInvite.inviteUrl);
     toast({ title: t("toast.inviteCopied") });
+  };
+
+  const openModulesDialog = async (office: { id: number; officeName: string }) => {
+    setModulesOffice(office);
+    setModulesDialogOpen(true);
+    setModulesLoading(true);
+    try {
+      const data = await fetchOfficeModules(office.id);
+      setModuleSelection(data.enabledModules);
+    } catch {
+      toast({ title: t("modules.loadError"), variant: "destructive" });
+      setModuleSelection(["dashboard"]);
+    } finally {
+      setModulesLoading(false);
+    }
+  };
+
+  const toggleModule = (moduleKey: AppModuleKey, checked: boolean) => {
+    setModuleSelection((current) => {
+      if (checked) return current.includes(moduleKey) ? current : [...current, moduleKey];
+      return current.filter((item) => item !== moduleKey);
+    });
+  };
+
+  const saveModules = async () => {
+    if (!modulesOffice) return;
+    setModulesSaving(true);
+    try {
+      const data = await updateOfficeModules(modulesOffice.id, moduleSelection);
+      setModuleSelection(data.enabledModules);
+      window.dispatchEvent(new CustomEvent("modules:updated"));
+      toast({ title: t("modules.saved") });
+      setModulesDialogOpen(false);
+    } catch {
+      toast({ title: t("modules.updateError"), variant: "destructive" });
+    } finally {
+      setModulesSaving(false);
+    }
   };
 
   const handleEdit = (office: any) => {
@@ -315,6 +361,46 @@ export default function Offices() {
           </DialogContent>
         </Dialog>
 
+        <Dialog open={modulesDialogOpen} onOpenChange={setModulesDialogOpen}>
+          <DialogContent className="sm:max-w-[560px]" dir={direction}>
+            <DialogHeader>
+              <DialogTitle>{t("modules.title")}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {modulesOffice?.officeName ? `${t("modules.description")} - ${modulesOffice.officeName}` : t("modules.description")}
+              </p>
+              {modulesLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)}
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {OFFICE_CONTROLLED_MODULES.map((moduleKey) => {
+                    const module = APP_MODULES.find((item) => item.key === moduleKey);
+                    if (!module) return null;
+                    return (
+                      <div key={module.key} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                        <Label className="cursor-pointer" htmlFor={`module-${module.key}`}>{t(module.labelKey)}</Label>
+                        <Switch
+                          id={`module-${module.key}`}
+                          checked={moduleSelection.includes(module.key)}
+                          onCheckedChange={(checked) => toggleModule(module.key, checked)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button onClick={saveModules} disabled={modulesLoading || modulesSaving}>
+                  {modulesSaving ? t("common.saving") : t("modules.save")}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <div className="bg-card border border-border rounded-lg shadow-sm">
           <div className="p-4 border-b border-border flex items-center gap-4">
             <div className="relative flex-1 max-w-sm">
@@ -337,7 +423,7 @@ export default function Offices() {
                   <TableHead className="text-right">{t("offices.contact")}</TableHead>
                   <TableHead className="text-right">{t("offices.subscriptionPlan")}</TableHead>
                   <TableHead className="text-right">{t("offices.subscriptionStatus")}</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
+                  <TableHead className="w-[140px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -391,6 +477,9 @@ export default function Offices() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 justify-end">
+                          <Button variant="ghost" size="icon" onClick={() => openModulesDialog({ id: office.id, officeName: office.officeName })} title={t("modules.manage")}>
+                            <Settings2 className="w-4 h-4 text-muted-foreground" />
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handleEdit(office)} title={t("common.edit")}>
                             <Edit2 className="w-4 h-4 text-primary" />
                           </Button>

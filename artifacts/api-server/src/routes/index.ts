@@ -22,12 +22,14 @@ import reportsRouter from "./reports";
 import whatsappRouter from "./whatsapp";
 import auditLogsRouter from "./audit-logs";
 import invitesRouter from "./invites";
+import officeModulesRouter from "./office-modules";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
 router.use(invitesRouter);
+router.use(officeModulesRouter);
 router.use(clientPortalRouter);
 router.use(filesRouter);
 router.use(dashboardRouter);
