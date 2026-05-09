@@ -10,10 +10,13 @@ import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { parseApiResponse } from "@/lib/api-response";
 import { fetchTaskStats, type TaskStats } from "@/lib/tasks";
-import { fetchFinanceStats, formatAmount, type FinanceStats } from "@/lib/invoices";
+import { fetchFinanceStats, type FinanceStats } from "@/lib/invoices";
 import { fetchOverviewReport, type OverviewReport } from "@/lib/reports";
+import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
 
 export default function Dashboard() {
+  const { formatCurrency, formatNumber, t } = useTranslation();
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: recentProjects, isLoading: projectsLoading } = useGetRecentProjects();
   const { data: pendingApprovals, isLoading: pendingLoading } = useGetPendingApprovals();
@@ -48,40 +51,40 @@ export default function Dashboard() {
       });
       await parseApiResponse(res);
       setShowChecklist(false);
-      toast({ title: "تم إنهاء قائمة البداية" });
+      toast({ title: t("dashboard.completeChecklistSuccess") });
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "تعذر إنهاء قائمة البداية", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("dashboard.completeChecklistError"), variant: "destructive" });
     } finally {
       setIsCompleting(false);
     }
   };
 
   const statCards = [
-    { title: "إجمالي العملاء", value: stats?.totalClients, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
-    { title: "إجمالي المشاريع", value: stats?.totalProjects, icon: FolderOpen, color: "text-indigo-500", bg: "bg-indigo-500/10" },
-    { title: "المشاريع الجارية", value: stats?.activeProjects, icon: PlayCircle, color: "text-amber-500", bg: "bg-amber-500/10" },
-    { title: "في انتظار موافقة العميل", value: stats?.projectsWaitingApproval, icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
-    { title: "مهامي", value: taskStats?.myTasks, icon: ClipboardList, color: "text-sky-500", bg: "bg-sky-500/10" },
-    { title: "المهام المتأخرة", value: taskStats?.overdueTasks, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
-    { title: "مهام هذا الأسبوع", value: taskStats?.thisWeekTasks, icon: CalendarDays, color: "text-lime-600", bg: "bg-lime-500/10" },
-    { title: "إجمالي الفواتير", value: overviewReport ? formatAmount(overviewReport.total_invoice_value) : financeStats ? formatAmount(financeStats.totalInvoices) : undefined, icon: Receipt, color: "text-cyan-600", bg: "bg-cyan-500/10" },
-    { title: "إجمالي المدفوع", value: overviewReport ? formatAmount(overviewReport.total_paid_amount) : financeStats ? formatAmount(financeStats.totalPaid) : undefined, icon: WalletCards, color: "text-emerald-600", bg: "bg-emerald-500/10" },
-    { title: "إجمالي المستحق", value: overviewReport ? formatAmount(overviewReport.total_outstanding_amount) : financeStats ? formatAmount(financeStats.totalDue) : undefined, icon: CircleDollarSign, color: "text-amber-600", bg: "bg-amber-500/10" },
-    { title: "مساحة التخزين المستخدمة", value: overviewReport ? `${overviewReport.storage_used_mb.toLocaleString("ar-EG", { maximumFractionDigits: 2 })} MB` : undefined, icon: Database, color: "text-violet-600", bg: "bg-violet-500/10" },
-    { title: "الفواتير المتأخرة", value: financeStats?.overdueInvoices, icon: AlertCircle, color: "text-red-600", bg: "bg-red-500/10" },
-    { title: "المشاريع المكتملة", value: stats?.completedProjects, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
-    { title: "خطط الاشتراك", value: stats?.totalPlans, icon: CreditCard, color: "text-purple-500", bg: "bg-purple-500/10" },
-    { title: "الخطط النشطة", value: stats?.activePlans, icon: Activity, color: "text-rose-500", bg: "bg-rose-500/10" },
-    { title: "إجمالي المكاتب", value: stats?.totalOffices, icon: Building2, color: "text-cyan-500", bg: "bg-cyan-500/10" },
-    { title: "الاشتراكات النشطة", value: stats?.activeSubscriptions, icon: CheckCircle2, color: "text-teal-500", bg: "bg-teal-500/10" },
+    { titleKey: "metric.totalClients", value: stats?.totalClients, icon: Users, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { titleKey: "metric.totalProjects", value: stats?.totalProjects, icon: FolderOpen, color: "text-indigo-500", bg: "bg-indigo-500/10" },
+    { titleKey: "metric.activeProjects", value: stats?.activeProjects, icon: PlayCircle, color: "text-amber-500", bg: "bg-amber-500/10" },
+    { titleKey: "metric.waitingClientApproval", value: stats?.projectsWaitingApproval, icon: Clock, color: "text-orange-500", bg: "bg-orange-500/10" },
+    { titleKey: "metric.myTasks", value: taskStats?.myTasks, icon: ClipboardList, color: "text-sky-500", bg: "bg-sky-500/10" },
+    { titleKey: "metric.overdueTasks", value: taskStats?.overdueTasks, icon: AlertCircle, color: "text-red-500", bg: "bg-red-500/10" },
+    { titleKey: "metric.weekTasks", value: taskStats?.thisWeekTasks, icon: CalendarDays, color: "text-lime-600", bg: "bg-lime-500/10" },
+    { titleKey: "metric.totalInvoices", value: overviewReport ? formatCurrency(overviewReport.total_invoice_value) : financeStats ? formatCurrency(financeStats.totalInvoices) : undefined, icon: Receipt, color: "text-cyan-600", bg: "bg-cyan-500/10" },
+    { titleKey: "metric.totalPaid", value: overviewReport ? formatCurrency(overviewReport.total_paid_amount) : financeStats ? formatCurrency(financeStats.totalPaid) : undefined, icon: WalletCards, color: "text-emerald-600", bg: "bg-emerald-500/10" },
+    { titleKey: "metric.totalOutstanding", value: overviewReport ? formatCurrency(overviewReport.total_outstanding_amount) : financeStats ? formatCurrency(financeStats.totalDue) : undefined, icon: CircleDollarSign, color: "text-amber-600", bg: "bg-amber-500/10" },
+    { titleKey: "metric.storageUsed", value: overviewReport ? `${formatNumber(overviewReport.storage_used_mb)} MB` : undefined, icon: Database, color: "text-violet-600", bg: "bg-violet-500/10" },
+    { titleKey: "metric.overdueInvoices", value: financeStats?.overdueInvoices, icon: AlertCircle, color: "text-red-600", bg: "bg-red-500/10" },
+    { titleKey: "metric.completedProjects", value: stats?.completedProjects, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-500/10" },
+    { titleKey: "metric.subscriptionPlans", value: stats?.totalPlans, icon: CreditCard, color: "text-purple-500", bg: "bg-purple-500/10" },
+    { titleKey: "metric.activePlans", value: stats?.activePlans, icon: Activity, color: "text-rose-500", bg: "bg-rose-500/10" },
+    { titleKey: "metric.totalOffices", value: stats?.totalOffices, icon: Building2, color: "text-cyan-500", bg: "bg-cyan-500/10" },
+    { titleKey: "metric.activeSubscriptions", value: stats?.activeSubscriptions, icon: CheckCircle2, color: "text-teal-500", bg: "bg-teal-500/10" },
   ];
 
   return (
     <AppLayout>
       <div className="space-y-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">لوحة التحكم</h1>
-          <p className="text-muted-foreground mt-1">نظرة عامة على أداء نظام إدارة المشاريع</p>
+          <h1 className="text-3xl font-bold text-foreground">{t("dashboard.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("dashboard.subtitle")}</p>
         </div>
 
         {showChecklist && (
@@ -89,18 +92,18 @@ export default function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="flex items-center gap-2">
                 <ListChecks className="w-5 h-5 text-primary" />
-                قائمة البداية
+                {t("dashboard.onboardingChecklist")}
               </CardTitle>
               <Button onClick={completeOnboarding} disabled={isCompleting} variant="outline">
-                إنهاء قائمة البداية
+                {t("dashboard.completeChecklist")}
               </Button>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                {["أضف أول عميل", "أنشئ أول مشروع", "ارفع ملفات المشروع", "أضف بنود المقايسة", "ادعُ العميل للبوابة"].map((item) => (
+                {(["dashboard.firstClient", "dashboard.firstProject", "dashboard.uploadFiles", "dashboard.addBoqItems", "dashboard.inviteClient"] as TranslationKey[]).map((item) => (
                   <div key={item} className="rounded-lg border bg-background p-3 text-sm flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-primary" />
-                    {item}
+                    {t(item)}
                   </div>
                 ))}
               </div>
@@ -115,7 +118,7 @@ export default function Dashboard() {
               <Card key={index} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-6 flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                    <p className="text-sm font-medium text-muted-foreground">{t(stat.titleKey as TranslationKey)}</p>
                     {statsLoading ? (
                       <Skeleton className="h-8 w-16" />
                     ) : (
@@ -134,8 +137,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xl">أحدث المشاريع</CardTitle>
-              <Link href="/projects" className="text-sm text-primary hover:underline">عرض الكل</Link>
+              <CardTitle className="text-xl">{t("dashboard.recentProjects")}</CardTitle>
+              <Link href="/projects" className="text-sm text-primary hover:underline">{t("dashboard.viewAll")}</Link>
             </CardHeader>
             <CardContent>
               {projectsLoading ? (
@@ -143,7 +146,7 @@ export default function Dashboard() {
                   {[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
                 </div>
               ) : recentProjects?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">لا توجد مشاريع حديثة</div>
+                <div className="text-center py-8 text-muted-foreground">{t("dashboard.noRecentProjects")}</div>
               ) : (
                 <div className="divide-y mt-4">
                   {recentProjects?.map(project => (
@@ -164,8 +167,8 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xl">في انتظار موافقة العميل</CardTitle>
-              <Link href="/projects" className="text-sm text-primary hover:underline">عرض الكل</Link>
+              <CardTitle className="text-xl">{t("metric.waitingClientApproval")}</CardTitle>
+              <Link href="/projects" className="text-sm text-primary hover:underline">{t("dashboard.viewAll")}</Link>
             </CardHeader>
             <CardContent>
               {pendingLoading ? (
@@ -173,7 +176,7 @@ export default function Dashboard() {
                   {[1, 2].map(i => <Skeleton key={i} className="h-16 w-full" />)}
                 </div>
               ) : pendingApprovals?.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">لا توجد مشاريع في انتظار الموافقة</div>
+                <div className="text-center py-8 text-muted-foreground">{t("dashboard.noPendingApprovals")}</div>
               ) : (
                 <div className="divide-y mt-4">
                   {pendingApprovals?.map(project => (

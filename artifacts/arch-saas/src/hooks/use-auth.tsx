@@ -1,9 +1,11 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { getGetMeQueryKey, useLogin, useGetMe } from "@workspace/api-client-react";
 import type { LoginBody, User } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { toast } from "@/hooks/use-toast";
+import { useTranslation } from "@/i18n/language-context";
+import { isLanguageCode } from "@/i18n/translations";
 
 interface AuthContextType {
   user: User | null;
@@ -24,6 +26,16 @@ type LoginResponseShape = {
   };
 };
 
+type LocalizedUser = User & {
+  preferredLanguage?: string | null;
+  office?: {
+    defaultLanguage?: string | null;
+    currency?: string | null;
+    timezone?: string | null;
+    region?: string | null;
+  } | null;
+};
+
 function normalizeLoginResponse(data: unknown): { token: string | null; user: User | null } {
   const payload = data && typeof data === "object" ? data as LoginResponseShape : {};
   const nested = payload.data && typeof payload.data === "object" ? payload.data : null;
@@ -36,16 +48,16 @@ function normalizeLoginResponse(data: unknown): { token: string | null; user: Us
   return { token, user };
 }
 
-function getLoginErrorMessage(error: unknown): string {
+function getLoginErrorMessage(error: unknown, fallback: { network: string; invalid: string; failed: string }): string {
   const data = (error as { data?: unknown } | null)?.data;
   if (data && typeof data === "object") {
     const message = (data as { message?: unknown; error?: unknown }).message ?? (data as { error?: unknown }).error;
     if (typeof message === "string" && message.trim()) return message;
   }
-  if (error instanceof TypeError) return "تعذر الاتصال بالخادم";
+  if (error instanceof TypeError) return fallback.network;
   const message = (error as { message?: unknown } | null)?.message;
-  if (typeof message === "string" && message.includes("401")) return "البريد الإلكتروني أو كلمة المرور غير صحيحة";
-  return "حدث خطأ أثناء تسجيل الدخول";
+  if (typeof message === "string" && message.includes("401")) return fallback.invalid;
+  return fallback.failed;
 }
 
 function isTokenExpired(token: string | null): boolean {
@@ -62,6 +74,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(localStorage.getItem("token"));
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { language, setLanguage, t } = useTranslation();
+  const hydratedLanguageUserId = useRef<number | null>(null);
 
   const { data: user, isLoading: isUserLoading, error: userError } = useGetMe({
     query: {
@@ -76,9 +90,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("token");
       setToken(null);
       setLocation("/login");
-      toast({ title: "انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى", variant: "destructive" });
+      toast({ title: t("auth.sessionExpired"), variant: "destructive" });
     }
   }, [token, setLocation]);
+
+  useEffect(() => {
+    const localizedUser = user as LocalizedUser | null | undefined;
+    if (!localizedUser?.id || hydratedLanguageUserId.current === localizedUser.id) return;
+    const preferredLanguage = localizedUser.preferredLanguage;
+    if (!isLanguageCode(preferredLanguage)) return;
+    hydratedLanguageUserId.current = localizedUser.id;
+    if (preferredLanguage !== language) setLanguage(preferredLanguage);
+  }, [user, language, setLanguage]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (!user) return;
+
+    fetch("/api/me/preferences", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ preferredLanguage: language }),
+    }).catch(() => undefined);
+  }, [language, token, user]);
 
   useEffect(() => {
     const status = typeof (userError as { status?: unknown } | null)?.status === "number"
@@ -90,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
     setLocation("/login");
-    toast({ title: "يرجى تسجيل الدخول بحساب إدارة صالح", variant: "destructive" });
+    toast({ title: t("auth.validAdminRequired"), variant: "destructive" });
   }, [token, userError, queryClient, setLocation]);
 
   useEffect(() => {
@@ -99,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setToken(null);
       queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
       setLocation("/login");
-      toast({ title: "انتهت صلاحية الجلسة، يرجى تسجيل الدخول مرة أخرى", variant: "destructive" });
+      toast({ title: t("auth.sessionExpired"), variant: "destructive" });
     };
 
     window.addEventListener("api:unauthorized", onUnauthorized);
@@ -117,27 +154,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               hasUser: Boolean(loginData.user),
             });
           }
-          toast({ title: "حدث خطأ أثناء تسجيل الدخول", variant: "destructive" });
+          toast({ title: t("auth.login.failed"), variant: "destructive" });
           return;
         }
         if (loginData.user.role === "client") {
           localStorage.removeItem("token");
           setToken(null);
           queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
-          toast({ title: "هذا حساب عميل. استخدم صفحة بوابة العميل", variant: "destructive" });
+          toast({ title: t("auth.clientAccountHint"), variant: "destructive" });
           setLocation("/client/login");
           return;
         }
         localStorage.removeItem("clientToken");
+        const preferredLanguage = (loginData.user as LocalizedUser).preferredLanguage;
+        if (isLanguageCode(preferredLanguage)) setLanguage(preferredLanguage);
         localStorage.setItem("token", loginData.token);
         localStorage.setItem("user", JSON.stringify(loginData.user));
         setToken(loginData.token);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-        toast({ title: "تم تسجيل الدخول بنجاح" });
+        toast({ title: t("auth.login.success") });
         setLocation("/dashboard");
       },
       onError: (error) => {
-        toast({ title: getLoginErrorMessage(error), variant: "destructive" });
+        toast({
+          title: getLoginErrorMessage(error, {
+            network: t("auth.login.network"),
+            invalid: t("auth.login.failed"),
+            failed: t("auth.login.failed"),
+          }),
+          variant: "destructive",
+        });
       },
     },
   });
@@ -145,7 +191,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (data: LoginBody) => {
     const email = data.email.trim();
     if (!email || !data.password) {
-      toast({ title: "البريد الإلكتروني وكلمة المرور مطلوبان", variant: "destructive" });
+      toast({ title: t("auth.login.required"), variant: "destructive" });
       return;
     }
     if (import.meta.env.DEV) {

@@ -22,11 +22,32 @@ import { Plus, Edit2, Trash2, Search, ExternalLink } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
 
-const PROJECT_STATUSES = ["جديد", "جاري", "في انتظار موافقة العميل", "يحتاج تعديل", "مكتمل"];
-const DESIGN_TYPES = ["تصميم داخلي", "تصميم معماري", "تصميم واجهات", "تصميم وتنفيذ كامل", "تشطيب كامل"];
+const PROJECT_STATUSES = [
+  { value: "جديد", labelKey: "project.status.new" },
+  { value: "جاري", labelKey: "project.status.inProgress" },
+  { value: "في انتظار موافقة العميل", labelKey: "project.status.waitingApproval" },
+  { value: "يحتاج تعديل", labelKey: "project.status.needsRevision" },
+  { value: "مكتمل", labelKey: "project.status.completed" },
+] satisfies Array<{ value: string; labelKey: TranslationKey }>;
+
+const DESIGN_TYPES = [
+  { value: "تصميم داخلي", labelKey: "project.design.interior" },
+  { value: "تصميم معماري", labelKey: "project.design.architecture" },
+  { value: "تصميم واجهات", labelKey: "project.design.facades" },
+  { value: "تصميم وتنفيذ كامل", labelKey: "project.design.fullDesignBuild" },
+  { value: "تشطيب كامل", labelKey: "project.design.fullFinishing" },
+] satisfies Array<{ value: string; labelKey: TranslationKey }>;
+
+function translatedOption(value: string | null | undefined, options: Array<{ value: string; labelKey: TranslationKey }>, t: (key: TranslationKey) => string) {
+  const option = options.find((item) => item.value === value);
+  return option ? t(option.labelKey) : value || "-";
+}
 
 export default function Projects() {
+  const { direction, formatCurrency, t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: projects, isLoading } = useGetProjects();
   const { data: clients } = useGetClients();
@@ -50,11 +71,11 @@ export default function Projects() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetProjectsQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -62,11 +83,11 @@ export default function Projects() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetProjectsQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -74,9 +95,9 @@ export default function Projects() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetProjectsQueryKey() });
-        toast({ title: "تم الحذف بنجاح" });
+        toast({ title: t("toast.deleted") });
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -137,11 +158,11 @@ export default function Projects() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" dir={direction}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">المشاريع</h1>
-            <p className="text-muted-foreground mt-1">إدارة وتتبع مشاريع التصميم والتنفيذ</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("projects.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("projects.subtitle")}</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -151,16 +172,16 @@ export default function Projects() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
-                إضافة مشروع
+                {t("projects.add")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" dir="rtl">
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto" dir={direction}>
               <DialogHeader>
-                <DialogTitle>{editingProject ? "تعديل بيانات المشروع" : "إضافة مشروع جديد"}</DialogTitle>
+                <DialogTitle>{editingProject ? t("projects.edit") : t("projects.create")}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="projectName">اسم المشروع *</Label>
+                  <Label htmlFor="projectName">{t("projects.name")} *</Label>
                   <Input 
                     id="projectName" 
                     required 
@@ -170,16 +191,16 @@ export default function Projects() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="clientId">العميل *</Label>
+                  <Label htmlFor="clientId">{t("projects.client")} *</Label>
                   <Select 
                     value={formData.clientId} 
                     onValueChange={(val) => setFormData({...formData, clientId: val})}
                     required
                   >
                     <SelectTrigger id="clientId">
-                      <SelectValue placeholder="اختر العميل" />
+                      <SelectValue placeholder={t("projects.selectClient")} />
                     </SelectTrigger>
-                    <SelectContent dir="rtl">
+                    <SelectContent dir={direction}>
                       {clients?.map(client => (
                         <SelectItem key={client.id} value={client.id.toString()}>{client.name}</SelectItem>
                       ))}
@@ -189,7 +210,7 @@ export default function Projects() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="designType">نوع التصميم *</Label>
+                    <Label htmlFor="designType">{t("projects.designType")} *</Label>
                     <Select 
                       value={formData.designType} 
                       onValueChange={(val) => setFormData({...formData, designType: val})}
@@ -198,15 +219,15 @@ export default function Projects() {
                       <SelectTrigger id="designType">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent dir="rtl">
+                      <SelectContent dir={direction}>
                         {DESIGN_TYPES.map(type => (
-                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                          <SelectItem key={type.value} value={type.value}>{t(type.labelKey)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="projectStatus">حالة المشروع *</Label>
+                    <Label htmlFor="projectStatus">{t("projects.status")} *</Label>
                     <Select 
                       value={formData.projectStatus} 
                       onValueChange={(val) => setFormData({...formData, projectStatus: val})}
@@ -215,9 +236,9 @@ export default function Projects() {
                       <SelectTrigger id="projectStatus">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent dir="rtl">
+                      <SelectContent dir={direction}>
                         {PROJECT_STATUSES.map(status => (
-                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                          <SelectItem key={status.value} value={status.value}>{t(status.labelKey)}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -226,7 +247,7 @@ export default function Projects() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="areaMeters">المساحة (متر مربع)</Label>
+                    <Label htmlFor="areaMeters">{t("projects.areaMeters")}</Label>
                     <Input 
                       id="areaMeters" 
                       type="number"
@@ -236,7 +257,7 @@ export default function Projects() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="pricePerMeter">سعر المتر</Label>
+                    <Label htmlFor="pricePerMeter">{t("projects.pricePerMeter")}</Label>
                     <Input 
                       id="pricePerMeter" 
                       type="number"
@@ -248,7 +269,7 @@ export default function Projects() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="startDate">تاريخ البدء</Label>
+                  <Label htmlFor="startDate">{t("projects.startDate")}</Label>
                   <Input 
                     id="startDate" 
                     type="date"
@@ -259,7 +280,7 @@ export default function Projects() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="notes">ملاحظات</Label>
+                  <Label htmlFor="notes">{t("projects.notes")}</Label>
                   <Textarea 
                     id="notes" 
                     rows={3}
@@ -270,7 +291,7 @@ export default function Projects() {
                 
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    حفظ
+                    {t("clients.save")}
                   </Button>
                 </div>
               </form>
@@ -283,7 +304,7 @@ export default function Projects() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="ابحث باسم المشروع أو العميل..." 
+                placeholder={t("projects.search")} 
                 className="pl-3 pr-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -295,12 +316,12 @@ export default function Projects() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">اسم المشروع</TableHead>
-                  <TableHead className="text-right">العميل</TableHead>
-                  <TableHead className="text-right">النوع</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right">المساحة</TableHead>
-                  <TableHead className="text-right">الإجمالي</TableHead>
+                  <TableHead className="text-right">{t("projects.name")}</TableHead>
+                  <TableHead className="text-right">{t("projects.client")}</TableHead>
+                  <TableHead className="text-right">{t("projects.designType")}</TableHead>
+                  <TableHead className="text-right">{t("projects.status")}</TableHead>
+                  <TableHead className="text-right">{t("projects.area")}</TableHead>
+                  <TableHead className="text-right">{t("projects.total")}</TableHead>
                   <TableHead className="w-[140px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -320,7 +341,7 @@ export default function Projects() {
                 ) : filteredProjects?.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                      لا يوجد مشاريع
+                      {t("projects.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -332,44 +353,44 @@ export default function Projects() {
                         </Link>
                       </TableCell>
                       <TableCell>{project.clientName}</TableCell>
-                      <TableCell className="text-muted-foreground">{project.designType}</TableCell>
+                      <TableCell className="text-muted-foreground">{translatedOption(project.designType, DESIGN_TYPES, t)}</TableCell>
                       <TableCell>
                         <Badge variant={project.projectStatus === 'مكتمل' ? 'default' : 'secondary'} className="font-normal">
-                          {project.projectStatus}
+                          {translatedOption(project.projectStatus, PROJECT_STATUSES, t)}
                         </Badge>
                       </TableCell>
                       <TableCell><span dir="ltr">{project.areaMeters ? `${project.areaMeters} m²` : '-'}</span></TableCell>
-                      <TableCell><span dir="ltr" className="font-medium text-primary">{project.totalDesignPrice ? `$${project.totalDesignPrice}` : '-'}</span></TableCell>
+                      <TableCell><span dir="ltr" className="font-medium text-primary">{project.totalDesignPrice ? formatCurrency(project.totalDesignPrice) : '-'}</span></TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 justify-end">
                           <Link href={`/projects/${project.id}`}>
-                            <Button variant="ghost" size="icon" title="التفاصيل">
+                            <Button variant="ghost" size="icon" title={t("projects.details")}>
                               <ExternalLink className="w-4 h-4 text-blue-500" />
                             </Button>
                           </Link>
-                          <Button variant="ghost" size="icon" onClick={() => handleEdit(project)} title="تعديل">
+                          <Button variant="ghost" size="icon" onClick={() => handleEdit(project)} title={t("common.edit")}>
                             <Edit2 className="w-4 h-4 text-primary" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" title="حذف">
+                              <Button variant="ghost" size="icon" title={t("common.delete")}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent dir="rtl">
+                            <AlertDialogContent dir={direction}>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد من الحذف؟</AlertDialogTitle>
+                                <AlertDialogTitle>{t("common.confirmDelete")}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  لا يمكن التراجع عن هذا الإجراء بعد تنفيذه. سيتم حذف بيانات المشروع وجميع المراحل والمقايسات المرتبطة به.
+                                  {t("projects.deleteWarning")}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter className="gap-2 sm:gap-0">
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                                 <AlertDialogAction 
                                   onClick={() => deleteMutation.mutate({ id: project.id })}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                  حذف
+                                  {t("common.delete")}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>

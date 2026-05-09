@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { parseApiResponse } from "@/lib/api-response";
+import { useTranslation } from "@/i18n/language-context";
 
 interface PortalUserInfo {
   id: number;
@@ -29,6 +30,7 @@ interface PortalUserInfo {
 }
 
 export default function Clients() {
+  const { direction, t } = useTranslation();
   const queryClient = useQueryClient();
   const { data: clients, isLoading } = useGetClients();
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,11 +55,11 @@ export default function Clients() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetClientsQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -65,11 +67,11 @@ export default function Clients() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetClientsQueryKey() });
-        toast({ title: "تم الحفظ بنجاح" });
+        toast({ title: t("toast.saved") });
         setIsDialogOpen(false);
         resetForm();
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -77,9 +79,9 @@ export default function Clients() {
     mutation: {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getGetClientsQueryKey() });
-        toast({ title: "تم الحذف بنجاح" });
+        toast({ title: t("toast.deleted") });
       },
-      onError: () => toast({ title: "حدث خطأ حاول مرة أخرى", variant: "destructive" })
+      onError: () => toast({ title: t("error.tryAgain"), variant: "destructive" })
     }
   });
 
@@ -137,10 +139,10 @@ export default function Clients() {
         body: JSON.stringify(portalForm),
       });
       const data = await parseApiResponse<{ isNew: boolean; user: PortalUserInfo }>(res);
-      toast({ title: data.isNew ? "تم إنشاء حساب البوابة بنجاح" : "تم تحديث بيانات الحساب بنجاح" });
+      toast({ title: data.isNew ? t("clients.portalCreated") : t("clients.portalUpdated") });
       setPortalDialog(d => ({ ...d, open: false }));
     } catch (err) {
-      toast({ title: err instanceof Error ? err.message : "حدث خطأ", variant: "destructive" });
+      toast({ title: err instanceof Error ? err.message : t("error.tryAgain"), variant: "destructive" });
     } finally {
       setIsPortalSubmitting(false);
     }
@@ -154,11 +156,11 @@ export default function Clients() {
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6" dir={direction}>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">العملاء</h1>
-            <p className="text-muted-foreground mt-1">إدارة بيانات العملاء والتواصل</p>
+            <h1 className="text-3xl font-bold text-foreground">{t("clients.title")}</h1>
+            <p className="text-muted-foreground mt-1">{t("clients.subtitle")}</p>
           </div>
           
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
@@ -168,16 +170,16 @@ export default function Clients() {
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
-                إضافة عميل
+                {t("clients.add")}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]" dir="rtl">
+            <DialogContent className="sm:max-w-[500px]" dir={direction}>
               <DialogHeader>
-                <DialogTitle>{editingClient ? "تعديل بيانات العميل" : "إضافة عميل جديد"}</DialogTitle>
+                <DialogTitle>{editingClient ? t("clients.edit") : t("clients.create")}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">اسم العميل *</Label>
+                  <Label htmlFor="name">{t("clients.name")} *</Label>
                   <Input 
                     id="name" 
                     required 
@@ -187,7 +189,7 @@ export default function Clients() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">رقم الهاتف</Label>
+                    <Label htmlFor="phone">{t("clients.phone")}</Label>
                     <Input 
                       id="phone" 
                       dir="ltr"
@@ -196,7 +198,7 @@ export default function Clients() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">البريد الإلكتروني</Label>
+                    <Label htmlFor="email">{t("clients.email")}</Label>
                     <Input 
                       id="email" 
                       type="email"
@@ -207,7 +209,7 @@ export default function Clients() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="address">العنوان</Label>
+                  <Label htmlFor="address">{t("clients.address")}</Label>
                   <Input 
                     id="address" 
                     value={formData.address}
@@ -215,7 +217,7 @@ export default function Clients() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="notes">ملاحظات</Label>
+                  <Label htmlFor="notes">{t("clients.notes")}</Label>
                   <Textarea 
                     id="notes" 
                     rows={3}
@@ -225,7 +227,7 @@ export default function Clients() {
                 </div>
                 <div className="flex justify-end gap-2 pt-4">
                   <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                    حفظ
+                    {t("clients.save")}
                   </Button>
                 </div>
               </form>
@@ -238,7 +240,7 @@ export default function Clients() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
-                placeholder="ابحث بالاسم، الهاتف، أو البريد..." 
+                placeholder={t("clients.search")} 
                 className="pl-3 pr-9"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -250,10 +252,10 @@ export default function Clients() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-right">اسم العميل</TableHead>
-                  <TableHead className="text-right">رقم الهاتف</TableHead>
-                  <TableHead className="text-right">البريد الإلكتروني</TableHead>
-                  <TableHead className="text-right">العنوان</TableHead>
+                  <TableHead className="text-right">{t("clients.name")}</TableHead>
+                  <TableHead className="text-right">{t("clients.phone")}</TableHead>
+                  <TableHead className="text-right">{t("clients.email")}</TableHead>
+                  <TableHead className="text-right">{t("clients.address")}</TableHead>
                   <TableHead className="w-[140px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -271,7 +273,7 @@ export default function Clients() {
                 ) : filteredClients?.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                      لا يوجد عملاء
+                      {t("clients.empty")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -286,7 +288,7 @@ export default function Clients() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            title="إدارة حساب البوابة"
+                            title={t("clients.portalManage")}
                             onClick={() => openPortalDialog(client)}
                           >
                             <KeyRound className="w-4 h-4 text-orange-500" />
@@ -300,20 +302,20 @@ export default function Clients() {
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent dir="rtl">
+                            <AlertDialogContent dir={direction}>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>هل أنت متأكد من الحذف؟</AlertDialogTitle>
+                                <AlertDialogTitle>{t("common.confirmDelete")}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  لا يمكن التراجع عن هذا الإجراء بعد تنفيذه. سيتم حذف بيانات العميل نهائياً.
+                                  {t("clients.deleteWarning")}
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter className="gap-2 sm:gap-0">
-                                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                                 <AlertDialogAction 
                                   onClick={() => deleteMutation.mutate({ id: client.id })}
                                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                 >
-                                  حذف
+                                  {t("common.delete")}
                                 </AlertDialogAction>
                               </AlertDialogFooter>
                             </AlertDialogContent>
@@ -330,11 +332,11 @@ export default function Clients() {
       </div>
 
       <Dialog open={portalDialog.open} onOpenChange={(open) => setPortalDialog(d => ({ ...d, open }))}>
-        <DialogContent dir="rtl" className="sm:max-w-[440px]">
+        <DialogContent dir={direction} className="sm:max-w-[440px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <KeyRound className="w-5 h-5 text-orange-500" />
-              حساب بوابة العميل
+              {t("clients.portalAccount")}
             </DialogTitle>
           </DialogHeader>
           {portalDialog.isLoading ? (
@@ -344,7 +346,7 @@ export default function Clients() {
           ) : (
             <div className="space-y-4 mt-2">
               <div className="bg-muted/50 rounded-lg px-4 py-2 text-sm">
-                <span className="text-muted-foreground">العميل: </span>
+                <span className="text-muted-foreground">{t("clients.client")}: </span>
                 <span className="font-medium">{portalDialog.clientName}</span>
               </div>
 
@@ -352,17 +354,17 @@ export default function Clients() {
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm text-emerald-800">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
                   <div>
-                    <span className="font-medium">حساب موجود: </span>
+                    <span className="font-medium">{t("clients.existingAccount")} </span>
                     <span dir="ltr">{portalDialog.existingUser.email}</span>
                   </div>
-                  <Badge variant="outline" className="mr-auto text-xs">نشط</Badge>
+                  <Badge variant="outline" className="mr-auto text-xs">{t("clients.active")}</Badge>
                 </div>
               )}
 
               <form onSubmit={handlePortalSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="portal-email">
-                    {portalDialog.existingUser ? "البريد الإلكتروني الجديد" : "البريد الإلكتروني"}
+                    {portalDialog.existingUser ? t("clients.newEmail") : t("clients.email")}
                   </Label>
                   <Input
                     id="portal-email"
@@ -376,7 +378,7 @@ export default function Clients() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="portal-password">
-                    {portalDialog.existingUser ? "كلمة المرور الجديدة" : "كلمة المرور"}
+                    {portalDialog.existingUser ? t("clients.newPassword") : t("clients.password")}
                   </Label>
                   <Input
                     id="portal-password"
@@ -385,17 +387,17 @@ export default function Clients() {
                     required
                     value={portalForm.password}
                     onChange={(e) => setPortalForm(f => ({ ...f, password: e.target.value }))}
-                    placeholder="6 أحرف على الأقل"
+                    placeholder={t("clients.passwordPlaceholder")}
                     minLength={6}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isPortalSubmitting}>
-                  {portalDialog.existingUser ? "تحديث بيانات الحساب" : "إنشاء حساب البوابة"}
+                  {portalDialog.existingUser ? t("clients.updatePortal") : t("clients.createPortal")}
                 </Button>
               </form>
 
               <p className="text-xs text-muted-foreground text-center">
-                رابط بوابة العملاء: <span dir="ltr" className="font-mono">/client/login</span>
+                {t("clients.portalLink")} <span dir="ltr" className="font-mono">/client/login</span>
               </p>
             </div>
           )}

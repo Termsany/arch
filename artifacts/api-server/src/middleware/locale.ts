@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
+import type { Office } from "@workspace/db";
 import { normalizeApiLanguage, type ApiLanguage } from "../i18n/messages";
 
 const localeByLanguage: Record<ApiLanguage, string> = {
@@ -23,10 +24,12 @@ function pickAcceptedLanguage(header: string | undefined): ApiLanguage {
   return normalizeApiLanguage(first);
 }
 
-export function applyUserLocale(req: Request, preferredLanguage?: string | null): void {
-  const language = normalizeApiLanguage(preferredLanguage || req.language);
+export function applyUserLocale(req: Request, preferredLanguage?: string | null, office?: Pick<Office, "defaultLanguage" | "currency" | "timezone"> | null): void {
+  const language = normalizeApiLanguage(preferredLanguage || office?.defaultLanguage || req.language);
   req.language = language;
   req.locale = localeByLanguage[language];
+  req.currency = office?.currency || req.currency || "EGP";
+  req.timezone = office?.timezone || req.timezone || "Africa/Cairo";
 }
 
 export function localeMiddleware(req: Request, _res: Response, next: NextFunction): void {

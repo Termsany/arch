@@ -7,18 +7,28 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
-import { fetchInvoices, STATUS_LABELS, type Invoice } from "@/lib/invoices";
+import { fetchInvoices, type Invoice, type InvoiceStatus } from "@/lib/invoices";
 import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
+
+const INVOICE_STATUS_KEYS: Record<InvoiceStatus, TranslationKey> = {
+  draft: "invoice.status.draft",
+  sent: "invoice.status.sent",
+  partially_paid: "invoice.status.partially_paid",
+  paid: "invoice.status.paid",
+  overdue: "invoice.status.overdue",
+  cancelled: "invoice.status.cancelled",
+};
 
 export default function InvoicesPage() {
-  const { direction, formatCurrency, formatDate } = useTranslation();
+  const { direction, formatCurrency, formatDate, t } = useTranslation();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchInvoices()
       .then(setInvoices)
-      .catch((err) => toast({ title: err instanceof Error ? err.message : "تعذر تحميل الفواتير", variant: "destructive" }))
+      .catch((err) => toast({ title: err instanceof Error ? err.message : t("invoices.loadError"), variant: "destructive" }))
       .finally(() => setLoading(false));
   }, []);
 
@@ -26,8 +36,8 @@ export default function InvoicesPage() {
     <AppLayout>
       <div className="space-y-6" dir={direction}>
         <div>
-          <h1 className="text-3xl font-bold">الفواتير والمدفوعات</h1>
-          <p className="text-muted-foreground mt-1">متابعة الفواتير والمدفوعات اليدوية لكل مكتب</p>
+          <h1 className="text-3xl font-bold">{t("invoices.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("invoices.subtitle")}</p>
         </div>
 
         <Card>
@@ -35,19 +45,19 @@ export default function InvoicesPage() {
             {loading ? (
               <Skeleton className="h-72 w-full" />
             ) : invoices.length === 0 ? (
-              <div className="text-center py-16 text-muted-foreground">لا توجد فواتير</div>
+              <div className="text-center py-16 text-muted-foreground">{t("invoices.empty")}</div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">رقم الفاتورة</TableHead>
-                    <TableHead className="text-right">العميل</TableHead>
-                    <TableHead className="text-right">المشروع</TableHead>
-                    <TableHead className="text-right">إجمالي الفاتورة</TableHead>
-                    <TableHead className="text-right">المدفوع</TableHead>
-                    <TableHead className="text-right">المتبقي</TableHead>
-                    <TableHead className="text-right">تاريخ الاستحقاق</TableHead>
-                    <TableHead className="text-right">الحالة</TableHead>
+                    <TableHead className="text-right">{t("invoices.number")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.client")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.project")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.total")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.paid")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.remaining")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.dueDate")}</TableHead>
+                    <TableHead className="text-right">{t("invoices.status")}</TableHead>
                     <TableHead className="w-24" />
                   </TableRow>
                 </TableHeader>
@@ -61,8 +71,8 @@ export default function InvoicesPage() {
                       <TableCell dir="ltr">{formatCurrency(invoice.paidAmount)}</TableCell>
                       <TableCell dir="ltr">{formatCurrency(invoice.remainingAmount)}</TableCell>
                       <TableCell dir="ltr">{formatDate(invoice.dueDate)}</TableCell>
-                      <TableCell><Badge variant="outline">{STATUS_LABELS[invoice.status]}</Badge></TableCell>
-                      <TableCell><Button asChild variant="outline" size="sm"><Link href={`/invoices/${invoice.id}`}>عرض</Link></Button></TableCell>
+                      <TableCell><Badge variant="outline">{t(INVOICE_STATUS_KEYS[invoice.status])}</Badge></TableCell>
+                      <TableCell><Button asChild variant="outline" size="sm"><Link href={`/invoices/${invoice.id}`}>{t("invoices.view")}</Link></Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

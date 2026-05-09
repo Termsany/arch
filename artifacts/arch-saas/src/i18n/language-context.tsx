@@ -60,13 +60,20 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(nextLanguage);
   };
 
+  const translate = (key: TranslationKey): string => {
+    const current = translations[language] as Partial<Record<TranslationKey, string>>;
+    const english = translations.en as Partial<Record<TranslationKey, string>>;
+    const arabic = translations[defaultLanguage] as Partial<Record<TranslationKey, string>>;
+    return current[key] ?? english[key] ?? arabic[key] ?? key;
+  };
+
   const value = useMemo<LanguageContextValue>(() => ({
     language,
     locale: runtimeLocale.locale,
     direction,
     languages,
     setLanguage,
-    t: (key) => translations[language][key] ?? translations[defaultLanguage][key] ?? key,
+    t: translate,
     formatCurrency: (valueToFormat, currency = DEFAULT_CURRENCY) =>
       formatCurrencyValue(valueToFormat, runtimeLocale.locale, currency),
     formatNumber: (valueToFormat) => formatNumberValue(valueToFormat, runtimeLocale.locale),

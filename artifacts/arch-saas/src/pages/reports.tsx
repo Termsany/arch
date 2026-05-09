@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type React from "react";
 import { AppLayout } from "@/components/layout";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "@/hooks/use-toast";
-import { formatAmount } from "@/lib/invoices";
 import { parseApiResponse } from "@/lib/api-response";
 import { fetchReport, type ReportData, type ReportFilters, type ReportKey } from "@/lib/reports";
 import { BarChart3, BriefcaseBusiness, CalendarDays, Database, FileText, FolderOpen, ListChecks, Users, WalletCards } from "lucide-react";
+import { useTranslation } from "@/i18n/language-context";
+import type { TranslationKey } from "@/i18n/translations";
 
 type OfficeOption = {
   id: number;
@@ -32,14 +33,14 @@ type CountRow = {
   [key: string]: unknown;
 };
 
-const reportTabs: Array<{ key: ReportKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: "overview", label: "تقرير عام", icon: BarChart3 },
-  { key: "projects", label: "المشاريع", icon: FolderOpen },
-  { key: "clients", label: "العملاء", icon: Users },
-  { key: "workflow", label: "المراحل", icon: BriefcaseBusiness },
-  { key: "finance", label: "المالي", icon: WalletCards },
-  { key: "tasks", label: "المهام", icon: ListChecks },
-  { key: "storage", label: "التخزين", icon: Database },
+const reportTabs: Array<{ key: ReportKey; labelKey: TranslationKey; icon: React.ComponentType<{ className?: string }> }> = [
+  { key: "overview", labelKey: "reports.overview", icon: BarChart3 },
+  { key: "projects", labelKey: "reports.projects", icon: FolderOpen },
+  { key: "clients", labelKey: "reports.clients", icon: Users },
+  { key: "workflow", labelKey: "reports.workflow", icon: BriefcaseBusiness },
+  { key: "finance", labelKey: "reports.finance", icon: WalletCards },
+  { key: "tasks", labelKey: "reports.tasks", icon: ListChecks },
+  { key: "storage", labelKey: "reports.storage", icon: Database },
 ];
 
 const invoiceStatusLabels: Record<string, string> = {
@@ -88,16 +89,30 @@ function number(value: unknown) {
   return Number(value ?? 0);
 }
 
-function money(value: unknown) {
-  return formatAmount(number(value));
-}
-
-function mb(value: unknown) {
-  return `${number(value).toLocaleString("ar-EG", { maximumFractionDigits: 2 })} MB`;
-}
-
 function maxCount(rows: CountRow[]) {
   return Math.max(1, ...rows.map((row) => number(row.count ?? row.total ?? row.storage_mb)));
+}
+
+type ReportRuntime = {
+  t: (key: TranslationKey) => string;
+  formatNumber: (value: number | string | null | undefined) => string;
+  formatCurrency: (value: number | string | null | undefined) => string;
+};
+
+const ReportRuntimeContext = createContext<ReportRuntime | null>(null);
+
+function useReportRuntime() {
+  const runtime = useContext(ReportRuntimeContext);
+  if (!runtime) throw new Error("useReportRuntime must be used within ReportRuntimeContext");
+  return runtime;
+}
+
+function money(value: unknown, formatCurrency: ReportRuntime["formatCurrency"]) {
+  return formatCurrency(number(value));
+}
+
+function mb(value: unknown, formatNumber: ReportRuntime["formatNumber"], unit: string) {
+  return `${formatNumber(number(value))} ${unit}`;
 }
 
 function MetricCard({ title, value, icon: Icon }: { title: string; value: React.ReactNode; icon: React.ComponentType<{ className?: string }> }) {
@@ -117,10 +132,12 @@ function MetricCard({ title, value, icon: Icon }: { title: string; value: React.
 }
 
 function EmptyState() {
-  return <div className="py-8 text-center text-muted-foreground">لا توجد بيانات</div>;
+  const { t } = useReportRuntime();
+  return <div className="py-8 text-center text-muted-foreground">{t("reports.empty")}</div>;
 }
 
-function CountTable({ title, rows, nameLabel = "البند" }: { title: string; rows: CountRow[]; nameLabel?: string }) {
+function CountTable({ title, rows, nameLabel }: { title: string; rows: CountRow[]; nameLabel?: string }) {
+  const { formatNumber, t } = useReportRuntime();
   const max = maxCount(rows);
   return (
     <Card>
@@ -134,8 +151,8 @@ function CountTable({ title, rows, nameLabel = "البند" }: { title: string; 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{nameLabel}</TableHead>
-                <TableHead>العدد</TableHead>
+                <TableHead>{nameLabel ?? t("reports.item")}</TableHead>
+                <TableHead>{t("reports.count")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -146,7 +163,7 @@ function CountTable({ title, rows, nameLabel = "البند" }: { title: string; 
                     <TableCell className="font-medium">{label(row.key ?? row.name ?? row.month)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <span>{count.toLocaleString("ar-EG")}</span>
+                        <span>{formatNumber(count)}</span>
                         <div className="h-2 flex-1 rounded-full bg-muted overflow-hidden">
                           <div className="h-full bg-primary" style={{ width: `${Math.max(6, (count / max) * 100)}%` }} />
                         </div>
@@ -198,20 +215,21 @@ function ListTable({ title, rows, columns }: { title: string; rows: CountRow[]; 
 }
 
 function OverviewSection({ data }: { data: ReportData }) {
+  const { formatCurrency, formatNumber, t } = useReportRuntime();
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-4">
-      <MetricCard title="إجمالي العملاء" value={number(data.total_clients).toLocaleString("ar-EG")} icon={Users} />
-      <MetricCard title="إجمالي المشاريع" value={number(data.total_projects).toLocaleString("ar-EG")} icon={FolderOpen} />
-      <MetricCard title="المشاريع الجارية" value={number(data.active_projects).toLocaleString("ar-EG")} icon={BriefcaseBusiness} />
-      <MetricCard title="المشاريع المكتملة" value={number(data.completed_projects).toLocaleString("ar-EG")} icon={FileText} />
-      <MetricCard title="في انتظار موافقة العميل" value={number(data.waiting_client_approval_projects).toLocaleString("ar-EG")} icon={CalendarDays} />
-      <MetricCard title="إجمالي المقايسات" value={money(data.total_boq_value)} icon={FileText} />
-      <MetricCard title="إجمالي الفواتير" value={money(data.total_invoice_value)} icon={WalletCards} />
-      <MetricCard title="إجمالي المدفوع" value={money(data.total_paid_amount)} icon={WalletCards} />
-      <MetricCard title="إجمالي المستحق" value={money(data.total_outstanding_amount)} icon={WalletCards} />
-      <MetricCard title="الفواتير المتأخرة" value={number(data.overdue_invoices_count).toLocaleString("ar-EG")} icon={CalendarDays} />
-      <MetricCard title="المهام المفتوحة" value={number(data.open_tasks_count).toLocaleString("ar-EG")} icon={ListChecks} />
-      <MetricCard title="مساحة التخزين المستخدمة" value={mb(data.storage_used_mb)} icon={Database} />
+      <MetricCard title={t("metric.totalClients")} value={formatNumber(number(data.total_clients))} icon={Users} />
+      <MetricCard title={t("metric.totalProjects")} value={formatNumber(number(data.total_projects))} icon={FolderOpen} />
+      <MetricCard title={t("metric.activeProjects")} value={formatNumber(number(data.active_projects))} icon={BriefcaseBusiness} />
+      <MetricCard title={t("metric.completedProjects")} value={formatNumber(number(data.completed_projects))} icon={FileText} />
+      <MetricCard title={t("metric.waitingClientApproval")} value={formatNumber(number(data.waiting_client_approval_projects))} icon={CalendarDays} />
+      <MetricCard title="إجمالي المقايسات" value={money(data.total_boq_value, formatCurrency)} icon={FileText} />
+      <MetricCard title={t("metric.totalInvoices")} value={money(data.total_invoice_value, formatCurrency)} icon={WalletCards} />
+      <MetricCard title={t("metric.totalPaid")} value={money(data.total_paid_amount, formatCurrency)} icon={WalletCards} />
+      <MetricCard title={t("metric.totalOutstanding")} value={money(data.total_outstanding_amount, formatCurrency)} icon={WalletCards} />
+      <MetricCard title={t("metric.overdueInvoices")} value={formatNumber(number(data.overdue_invoices_count))} icon={CalendarDays} />
+      <MetricCard title="المهام المفتوحة" value={formatNumber(number(data.open_tasks_count))} icon={ListChecks} />
+      <MetricCard title={t("metric.storageUsed")} value={mb(data.storage_used_mb, formatNumber, t("reports.storageUnit"))} icon={Database} />
     </div>
   );
 }
@@ -238,26 +256,27 @@ function ProjectsSection({ data }: { data: ReportData }) {
 }
 
 function ClientsSection({ data }: { data: ReportData }) {
+  const { formatCurrency, formatNumber, t } = useReportRuntime();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard title="إجمالي العملاء" value={number(data.total_clients).toLocaleString("ar-EG")} icon={Users} />
+        <MetricCard title={t("metric.totalClients")} value={formatNumber(number(data.total_clients))} icon={Users} />
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <CountTable title="العملاء الجدد حسب الشهر" rows={asRows(data.new_clients_per_month)} nameLabel="الشهر" />
         <ListTable title="أكثر العملاء نشاطاً" rows={asRows(data.clients_with_most_projects)} columns={[
           { key: "name", label: "العميل" },
           { key: "phone", label: "الهاتف" },
-          { key: "projects_count", label: "عدد المشاريع", format: (value) => number(value).toLocaleString("ar-EG") },
+          { key: "projects_count", label: "عدد المشاريع", format: (value) => formatNumber(number(value)) },
         ]} />
         <ListTable title="عملاء لديهم موافقات معلقة" rows={asRows(data.clients_with_pending_approvals)} columns={[
           { key: "name", label: "العميل" },
-          { key: "projects_count", label: "عدد المشاريع", format: (value) => number(value).toLocaleString("ar-EG") },
+          { key: "projects_count", label: "عدد المشاريع", format: (value) => formatNumber(number(value)) },
         ]} />
         <ListTable title="عملاء لديهم فواتير غير مدفوعة" rows={asRows(data.clients_with_unpaid_invoices)} columns={[
           { key: "name", label: "العميل" },
-          { key: "invoices_count", label: "عدد الفواتير", format: (value) => number(value).toLocaleString("ar-EG") },
-          { key: "total", label: "إجمالي المستحق", format: money },
+          { key: "invoices_count", label: "عدد الفواتير", format: (value) => formatNumber(number(value)) },
+          { key: "total", label: "إجمالي المستحق", format: (value) => money(value, formatCurrency) },
         ]} />
       </div>
     </div>
@@ -292,12 +311,13 @@ function WorkflowSection({ data }: { data: ReportData }) {
 }
 
 function FinanceSection({ data }: { data: ReportData }) {
+  const { formatCurrency, t } = useReportRuntime();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <MetricCard title="إجمالي الفواتير" value={money(data.total_invoice_value)} icon={WalletCards} />
-        <MetricCard title="إجمالي المدفوع" value={money(data.total_paid_amount)} icon={WalletCards} />
-        <MetricCard title="إجمالي المستحق" value={money(data.total_outstanding_amount)} icon={WalletCards} />
+        <MetricCard title={t("metric.totalInvoices")} value={money(data.total_invoice_value, formatCurrency)} icon={WalletCards} />
+        <MetricCard title={t("metric.totalPaid")} value={money(data.total_paid_amount, formatCurrency)} icon={WalletCards} />
+        <MetricCard title={t("metric.totalOutstanding")} value={money(data.total_outstanding_amount, formatCurrency)} icon={WalletCards} />
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <CountTable title="حسب الحالة" rows={asRows(data.invoices_by_status)} />
@@ -305,23 +325,23 @@ function FinanceSection({ data }: { data: ReportData }) {
           { key: "invoice_number", label: "رقم الفاتورة" },
           { key: "client_name", label: "العميل" },
           { key: "project_name", label: "المشروع" },
-          { key: "outstanding_amount", label: "المتبقي", format: money },
+          { key: "outstanding_amount", label: "المتبقي", format: (value) => money(value, formatCurrency) },
         ]} />
         <ListTable title="المدفوعات حسب الشهر" rows={asRows(data.payments_per_month)} columns={[
           { key: "month", label: "الشهر" },
-          { key: "total", label: "الإجمالي", format: money },
+          { key: "total", label: "الإجمالي", format: (value) => money(value, formatCurrency) },
         ]} />
         <ListTable title="إجمالي الفواتير حسب الشهر" rows={asRows(data.invoice_totals_per_month)} columns={[
           { key: "month", label: "الشهر" },
-          { key: "total", label: "الإجمالي", format: money },
+          { key: "total", label: "الإجمالي", format: (value) => money(value, formatCurrency) },
         ]} />
         <ListTable title="أكثر المشاريع إيراداً" rows={asRows(data.top_projects_by_revenue)} columns={[
           { key: "project_name", label: "المشروع" },
-          { key: "total", label: "الإيراد", format: money },
+          { key: "total", label: "الإيراد", format: (value) => money(value, formatCurrency) },
         ]} />
         <ListTable title="أكثر العملاء إيراداً" rows={asRows(data.top_clients_by_revenue)} columns={[
           { key: "name", label: "العميل" },
-          { key: "total", label: "الإيراد", format: money },
+          { key: "total", label: "الإيراد", format: (value) => money(value, formatCurrency) },
         ]} />
       </div>
     </div>
@@ -329,13 +349,14 @@ function FinanceSection({ data }: { data: ReportData }) {
 }
 
 function TasksSection({ data }: { data: ReportData }) {
+  const { formatNumber } = useReportRuntime();
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
       <CountTable title="حسب الحالة" rows={asRows(data.tasks_by_status)} />
       <CountTable title="حسب الأولوية" rows={asRows(data.tasks_by_priority)} />
       <ListTable title="حسب المسؤول" rows={asRows(data.tasks_by_assignee)} columns={[
         { key: "name", label: "المسؤول" },
-        { key: "count", label: "العدد", format: (value) => number(value).toLocaleString("ar-EG") },
+        { key: "count", label: "العدد", format: (value) => formatNumber(number(value)) },
       ]} />
       <CountTable title="المهام المكتملة حسب الشهر" rows={asRows(data.completed_tasks_per_month)} nameLabel="الشهر" />
       <ListTable title="المهام المتأخرة" rows={asRows(data.overdue_tasks)} columns={[
@@ -356,33 +377,34 @@ function TasksSection({ data }: { data: ReportData }) {
 }
 
 function StorageSection({ data }: { data: ReportData }) {
+  const { formatNumber, t } = useReportRuntime();
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <MetricCard title="إجمالي الملفات" value={number(data.total_files).toLocaleString("ar-EG")} icon={FileText} />
-        <MetricCard title="مساحة التخزين المستخدمة" value={mb(data.storage_used_mb)} icon={Database} />
+        <MetricCard title="إجمالي الملفات" value={formatNumber(number(data.total_files))} icon={FileText} />
+        <MetricCard title={t("metric.storageUsed")} value={mb(data.storage_used_mb, formatNumber, t("reports.storageUnit"))} icon={Database} />
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <ListTable title="حسب التصنيف" rows={asRows(data.files_by_category)} columns={[
           { key: "category", label: "التصنيف" },
-          { key: "count", label: "العدد", format: (value) => number(value).toLocaleString("ar-EG") },
-          { key: "storage_mb", label: "المساحة", format: mb },
+          { key: "count", label: "العدد", format: (value) => formatNumber(number(value)) },
+          { key: "storage_mb", label: "المساحة", format: (value) => mb(value, formatNumber, t("reports.storageUnit")) },
         ]} />
         <ListTable title="حسب المشروع" rows={asRows(data.storage_by_project)} columns={[
           { key: "project_name", label: "المشروع" },
-          { key: "files_count", label: "عدد الملفات", format: (value) => number(value).toLocaleString("ar-EG") },
-          { key: "storage_mb", label: "المساحة", format: mb },
+          { key: "files_count", label: "عدد الملفات", format: (value) => formatNumber(number(value)) },
+          { key: "storage_mb", label: "المساحة", format: (value) => mb(value, formatNumber, t("reports.storageUnit")) },
         ]} />
         <ListTable title="حسب الظهور" rows={asRows(data.storage_by_visibility)} columns={[
           { key: "visibility", label: "الظهور", format: (value) => label(value) },
-          { key: "count", label: "العدد", format: (value) => number(value).toLocaleString("ar-EG") },
-          { key: "storage_mb", label: "المساحة", format: mb },
+          { key: "count", label: "العدد", format: (value) => formatNumber(number(value)) },
+          { key: "storage_mb", label: "المساحة", format: (value) => mb(value, formatNumber, t("reports.storageUnit")) },
         ]} />
         <ListTable title="أكبر الملفات" rows={asRows(data.largest_files)} columns={[
           { key: "original_name", label: "الملف" },
           { key: "project_name", label: "المشروع" },
           { key: "file_category", label: "التصنيف" },
-          { key: "storage_mb", label: "المساحة", format: mb },
+          { key: "storage_mb", label: "المساحة", format: (value) => mb(value, formatNumber, t("reports.storageUnit")) },
         ]} />
       </div>
     </div>
@@ -400,6 +422,7 @@ function renderReport(report: ReportKey, data: ReportData) {
 }
 
 export default function Reports() {
+  const { direction, formatCurrency, formatNumber, t } = useTranslation();
   const { user } = useAuth();
   const isSuperAdmin = (user as { role?: string } | null)?.role === "super_admin";
   const [activeReport, setActiveReport] = useState<ReportKey>("overview");
@@ -423,12 +446,15 @@ export default function Reports() {
       .then(setData)
       .catch((err) => {
         setData(null);
-        toast({ title: err instanceof Error ? err.message : "تعذر تحميل التقرير", variant: "destructive" });
+        toast({ title: err instanceof Error ? err.message : t("reports.loadError"), variant: "destructive" });
       })
       .finally(() => setIsLoading(false));
   }, [activeReport, filters]);
 
-  const currentTitle = useMemo(() => reportTabs.find((tab) => tab.key === activeReport)?.label ?? "التقارير", [activeReport]);
+  const currentTitle = useMemo(() => {
+    const tab = reportTabs.find((item) => item.key === activeReport);
+    return tab ? t(tab.labelKey) : t("reports.title");
+  }, [activeReport, t]);
 
   const applyFilters = () => {
     setFilters(draftFilters);
@@ -436,31 +462,32 @@ export default function Reports() {
 
   return (
     <AppLayout>
-      <div className="space-y-6" dir="rtl">
+      <ReportRuntimeContext.Provider value={{ t, formatNumber, formatCurrency }}>
+      <div className="space-y-6" dir={direction}>
         <div>
-          <h1 className="text-3xl font-bold">التقارير</h1>
-          <p className="text-muted-foreground mt-1">تقارير بسيطة وسريعة عن المشاريع، العملاء، المراحل، المالي، المهام، والتخزين</p>
+          <h1 className="text-3xl font-bold">{t("reports.title")}</h1>
+          <p className="text-muted-foreground mt-1">{t("reports.subtitle")}</p>
         </div>
 
         <Card>
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="space-y-2">
-              <Label htmlFor="from-date">من تاريخ</Label>
+              <Label htmlFor="from-date">{t("reports.fromDate")}</Label>
               <Input id="from-date" type="date" value={draftFilters.from_date ?? ""} onChange={(e) => setDraftFilters((prev) => ({ ...prev, from_date: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="to-date">إلى تاريخ</Label>
+              <Label htmlFor="to-date">{t("reports.toDate")}</Label>
               <Input id="to-date" type="date" value={draftFilters.to_date ?? ""} onChange={(e) => setDraftFilters((prev) => ({ ...prev, to_date: e.target.value }))} />
             </div>
             {isSuperAdmin && (
               <div className="space-y-2">
-                <Label>المكتب</Label>
+                <Label>{t("reports.office")}</Label>
                 <Select value={draftFilters.office_id ?? "all"} onValueChange={(value) => setDraftFilters((prev) => ({ ...prev, office_id: value }))}>
                   <SelectTrigger>
-                    <SelectValue placeholder="كل المكاتب" />
+                    <SelectValue placeholder={t("reports.allOffices")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">كل المكاتب</SelectItem>
+                    <SelectItem value="all">{t("reports.allOffices")}</SelectItem>
                     {offices.map((office) => (
                       <SelectItem key={office.id} value={String(office.id)}>{office.officeName}</SelectItem>
                     ))}
@@ -470,7 +497,7 @@ export default function Reports() {
             )}
             <Button onClick={applyFilters} className="gap-2">
               <CalendarDays className="w-4 h-4" />
-              تطبيق الفلتر
+              {t("reports.applyFilter")}
             </Button>
           </CardContent>
         </Card>
@@ -482,7 +509,7 @@ export default function Reports() {
               return (
                 <TabsTrigger key={tab.key} value={tab.key} className="gap-2">
                   <Icon className="w-4 h-4" />
-                  {tab.label}
+                  {t(tab.labelKey)}
                 </TabsTrigger>
               );
             })}
@@ -492,9 +519,9 @@ export default function Reports() {
             <TabsContent key={tab.key} value={tab.key} className="space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-semibold">
-                  {tab.key === "overview" ? "تقرير عام" : tab.key === "finance" ? "التقرير المالي" : `تقرير ${currentTitle}`}
+                  {tab.key === "overview" ? t("reports.overview") : tab.key === "finance" ? t("reports.finance") : currentTitle}
                 </h2>
-                <Badge variant="outline">بيانات معزولة حسب المكتب</Badge>
+                <Badge variant="outline">{t("reports.isolated")}</Badge>
               </div>
               {isLoading ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -509,6 +536,7 @@ export default function Reports() {
           ))}
         </Tabs>
       </div>
+      </ReportRuntimeContext.Provider>
     </AppLayout>
   );
 }
